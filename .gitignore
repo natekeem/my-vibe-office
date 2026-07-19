@@ -1,0 +1,7 @@
+data/*.json
+data/*.tmp
+data/logs/
+node_modules/
+dist/
+release/*.exe
+*.log

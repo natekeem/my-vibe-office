@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'">
+  <title>Local Agent Office</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/v2.css">
+  <link rel="stylesheet" href="/v3.css">
+  <link rel="stylesheet" href="/v4.css">
+  <link rel="stylesheet" href="/v5.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">LO</span><div><strong>Local Office</strong><small>agents at work</small></div></div>
+      <nav>
+        <button class="nav active" data-page="office"><span>⌂</span>오피스</button>
+        <button class="nav" data-page="board"><span>▦</span>작업 보드</button>
+        <button class="nav" data-page="history"><span>⌕</span>기록 검색</button>
+        <button class="nav" data-page="agents"><span>◆</span>에이전트</button>
+        <button class="nav" data-page="projects"><span>▰</span>프로젝트</button>
+        <button class="nav" data-page="schedules"><span>◷</span>예약 작업</button>
+        <button class="nav" data-page="usage"><span>◒</span>사용 통계</button>
+        <button class="nav" data-page="settings"><span>⚙</span>설정</button>
+      </nav>
+      <div class="side-status"><i id="server-dot"></i><div><b id="server-label">연결 확인 중</b><small>로컬 전용</small></div></div>
+    </aside>
+    <main>
+      <header><div><p class="eyebrow" id="eyebrow">TODAY'S OFFICE</p><h1 id="page-title">오피스</h1></div><button class="primary" id="new-task">＋ 새 작업</button></header>
+      <section id="page"></section>
+    </main>
+  </div>
+
+  <dialog id="modal"><form method="dialog" id="modal-form"><div class="modal-head"><div><p class="eyebrow" id="modal-kicker"></p><h2 id="modal-title"></h2></div><button type="button" class="icon-btn" id="modal-close" aria-label="닫기">×</button></div><div id="modal-body"></div></form></dialog>
+  <div id="toast"></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+{
+  "name": "local-agent-office",
+  "version": "0.5.0",
+  "author": "Local Agent Office contributors",
+  "private": true,
+  "type": "module",
+  "main": "desktop/main.mjs",
+  "description": "Local-first virtual office for CLI coding agents",
+  "scripts": {
+    "start": "node src/main.mjs --open",
+    "serve": "node src/main.mjs",
+    "desktop": "electron .",
+    "dist": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-portable.ps1",
+    "test": "node --test",
+    "check": "node --check desktop/main.mjs && node --check src/main.mjs && node --check src/server.mjs && node --check src/store.mjs && node --check src/runner.mjs && node --check src/scheduler.mjs && node --check src/detect.mjs && node --check src/presets.mjs && node --check web/office-stage.js && node --check web/app.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "build": {
+    "appId": "local.agent.office",
+    "productName": "Local Agent Office",
+    "asar": true,
+    "compression": "normal",
+    "files": [
+      "desktop/**/*",
+      "src/**/*",
+      "web/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "portable",
+      "artifactName": "Local-Agent-Office-${version}.${ext}"
+    }
+  },
+  "devDependencies": {
+    "electron": "^43.1.1",
+    "electron-builder": "^26.15.3"
+  }
+}
