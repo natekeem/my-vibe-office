@@ -17,7 +17,8 @@ src/server.mjs
         ├── src/presets.mjs ── role / task prompt templates
         ├── src/detect.mjs ── local CLI discovery
         ├── src/capabilities.mjs ── MCP / skills / rules / plugins / subagents inventory
-        └── src/github.mjs ── git origin / GitHub Issues / Projects v2
+        ├── src/repository.mjs ── canonical Git root / branches / history / worktrees
+        └── src/github.mjs ── GitHub Issues / Projects v2 / Pull Requests
 
 desktop/main.mjs
         └── folder picker / file reveal / Windows autostart / tray
@@ -45,9 +46,17 @@ Claude/OpenCode 계열의 구조화 로그에서 Agent 또는 Task 도구 호출
 
 `capabilities.mjs`는 사용자 전역 설정과 활성 repo 설정을 읽어 Codex·Claude·OpenCode의 MCP, Skills, Rules/Instructions, Plugins, Agents/Subagents, Commands를 공통 형식으로 변환한다. 환경 변수 값, API 키, 프롬프트 본문은 응답에 포함하지 않고 구성 이름·범위·출처·활성 상태만 반환한다.
 
+기본 3종 외 프로필은 `family`, `executable`, `args[]`, `env`를 가진다. 예를 들어 Claude 호환 사내 endpoint는 `family: claude`와 `ANTHROPIC_BASE_URL`을 설정하고 토큰은 `{env:COMPANY_TOKEN}`으로 참조한다. Runner가 실행 직전에 현재 프로세스 환경에서 참조를 해석하며 인벤토리는 실제 값을 반환하지 않는다.
+
 ### GitHub 계층
 
-`github.mjs`는 셸을 사용하지 않는 `execFile` 호출로 `git`과 `gh`를 실행한다. 활성 repo의 `origin`에서 owner/repo를 결정하고, Issue 목록·생성·상태 변경과 Projects v2 목록 조회를 담당한다. Issue 가져오기는 자동 실행이 아닌 TO-DO 카드 생성으로 제한하며 Projects v2는 현재 읽기 전용이다.
+`repository.mjs`는 `git rev-parse --show-toplevel`로 Office의 canonical root를 확정하고 branch, upstream, working tree, remotes, commit history, worktrees를 공통 모델로 변환한다. 격리 모드의 Runner는 에이전트별 영속 `workpets/*` branch와 사용자 홈 아래 별도 worktree를 준비한다. 동일 에이전트의 작업은 같은 worktree에서 직렬화되고 서로 다른 에이전트는 전역 동시 실행 한도 안에서 병렬로 실행할 수 있다.
+
+`github.mjs`는 셸을 사용하지 않는 `execFile` 호출로 `gh`를 실행한다. 활성 repo의 `origin`에서 owner/repo를 결정하고 Issue 목록·생성·상태 변경, Projects v2 항목, Pull Request와 check rollup 조회를 담당한다. Issue 가져오기는 자동 실행이 아닌 TO-DO 카드 생성으로 제한하며 Projects v2는 현재 읽기 전용이다.
+
+### Office 활성화 게이트
+
+저장소 계층은 일반 폴더를 프로젝트로 저장하지 않는다. 첫 Office가 생성되면 활성 Office로 지정하고, 이후 새 에이전트는 현재 Office에 자동 배치한다. 카드와 예약 API는 활성 Office와 배치 에이전트를 검증하며 Runner는 실행 직전 Git repo 유효성을 다시 확인한다.
 
 동시 실행 한도에 도달하면 작업은 `queued`로 전환된다. 실행 프로세스가 끝나거나 중지되면 대기열의 다음 작업을 자동으로 실행한다. Codex의 JSONL 이벤트는 메시지, 명령 결과, 토큰 사용량으로 정규화하며 원본 이벤트도 카드에 보존한다.
 

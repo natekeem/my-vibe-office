@@ -4,6 +4,7 @@ import path from 'node:path';
 import { presets } from './presets.mjs';
 import { inspectCapabilities } from './capabilities.mjs';
 import { createGithubIssue, getGithubIssue, inspectGithub, setGithubIssueState } from './github.mjs';
+import { ensureAgentWorktree, inspectRepository } from './repository.mjs';
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml' };
 
@@ -51,9 +52,14 @@ export function createServer({ store, runner, scheduler, orchestrator, integrati
       if (method === 'GET' && url.pathname === '/api/usage') return send(res, 200, usageSummary(store.snapshot()));
       if (method === 'GET' && url.pathname === '/api/detect') return send(res, 200, store.snapshot().settings.detected || {});
       if (method === 'GET' && url.pathname === '/api/projects') return send(res, 200, store.listProjects());
+      if (method === 'GET' && url.pathname === '/api/repository') {
+        const project = store.getProject(url.searchParams.get('projectId'));
+        return send(res, 200, await inspectRepository(project?.path || ''));
+      }
       if (method === 'GET' && url.pathname === '/api/capabilities') {
         const project = store.getProject(url.searchParams.get('projectId'));
-        return send(res, 200, inspectCapabilities({ projectPath: project?.path || store.snapshot().settings.defaultWorkdir, detected: store.snapshot().settings.detected || {} }));
+        const settings = store.snapshot().settings;
+        return send(res, 200, inspectCapabilities({ projectPath: project?.path || settings.defaultWorkdir, detected: settings.detected || {}, adapters: settings.adapters || {} }));
       }
       if (method === 'GET' && url.pathname === '/api/github') {
         const project = store.getProject(url.searchParams.get('projectId'));
@@ -100,6 +106,15 @@ export function createServer({ store, runner, scheduler, orchestrator, integrati
       if (method === 'POST' && url.pathname === '/api/projects') {
         const project = await store.saveProject(await body(req, config.maxBodyBytes)); emit('reload', { kind: 'projects' }); return send(res, 201, project);
       }
+      if (method === 'POST' && url.pathname === '/api/repository/worktrees') {
+        const input = await body(req, config.maxBodyBytes);
+        const project = store.getProject(input.projectId);
+        const agent = store.getAgent(input.agentId);
+        if (!project || !agent || !project.agentIds?.includes(agent.id)) throw new Error('Office에 배치된 에이전트를 선택하세요.');
+        const worktree = await ensureAgentWorktree(project.path, agent);
+        emit('reload', { kind: 'repository' });
+        return send(res, 201, worktree);
+      }
       const projectMatch = url.pathname.match(/^\/api\/projects\/([^/]+)$/);
       if (projectMatch && method === 'DELETE') {
         const removed = await store.removeProject(decodeURIComponent(projectMatch[1])); emit('reload', { kind: 'projects' }); return send(res, removed ? 200 : 404, { ok: removed });
@@ -115,7 +130,12 @@ export function createServer({ store, runner, scheduler, orchestrator, integrati
       }
       if (method === 'GET' && url.pathname === '/api/agents') return send(res, 200, store.listAgents());
       if (method === 'POST' && url.pathname === '/api/agents') {
-        const agent = await store.saveAgent(await body(req, config.maxBodyBytes)); emit('agent', agent); return send(res, 201, agent);
+        const input = await body(req, config.maxBodyBytes);
+        const activeProjectId = store.snapshot().settings.activeProjectId;
+        if (!input.id && !activeProjectId) throw new Error('먼저 Git repo Office를 설정하세요.');
+        const agent = await store.saveAgent(input);
+        if (!input.id && activeProjectId) await store.assignAgentToProject(activeProjectId, agent.id);
+        emit('agent', agent); return send(res, 201, agent);
       }
       const agentPresetMatch = url.pathname.match(/^\/api\/agents\/([^/]+)\/preset$/);
       if (agentPresetMatch && method === 'POST') {
@@ -141,7 +161,12 @@ export function createServer({ store, runner, scheduler, orchestrator, integrati
       }
       if (method === 'GET' && url.pathname === '/api/cards') return send(res, 200, store.listCards());
       if (method === 'POST' && url.pathname === '/api/cards') {
-        const card = await store.createCard(await body(req, config.maxBodyBytes)); emit('card', card); return send(res, 201, card);
+        const input = await body(req, config.maxBodyBytes);
+        const projectId = input.projectId || store.snapshot().settings.activeProjectId;
+        const project = store.getProject(projectId);
+        if (!project) throw new Error('먼저 Git repo Office를 설정하세요.');
+        if (!project.agentIds?.includes(input.agentId)) throw new Error('현재 Office에 배치된 에이전트를 선택하세요.');
+        const card = await store.createCard({ ...input, projectId: project.id, workdir: project.path }); emit('card', card); return send(res, 201, card);
       }
       if (method === 'GET' && url.pathname === '/api/artifacts') {
         const card = store.getCard(url.searchParams.get('cardId'));
@@ -205,6 +230,13 @@ export function createServer({ store, runner, scheduler, orchestrator, integrati
       if (method === 'GET' && url.pathname === '/api/settings') return send(res, 200, store.snapshot().settings);
       if (method === 'PUT' && url.pathname === '/api/settings') {
         const settings = await store.saveSettings(await body(req, config.maxBodyBytes)); emit('settings', settings); return send(res, 200, settings);
+      }
+      if (method === 'POST' && url.pathname === '/api/adapters') {
+        const adapter = await store.saveAdapter(await body(req, config.maxBodyBytes)); emit('reload', { kind: 'adapters' }); return send(res, 201, adapter);
+      }
+      const adapterMatch = url.pathname.match(/^\/api\/adapters\/([^/]+)$/);
+      if (adapterMatch && method === 'DELETE') {
+        const removed = await store.removeAdapter(decodeURIComponent(adapterMatch[1])); emit('reload', { kind: 'adapters' }); return send(res, removed ? 200 : 404, { ok: removed });
       }
       if (method === 'GET' && url.pathname === '/api/schedules') return send(res, 200, store.listSchedules());
       if (method === 'POST' && url.pathname === '/api/schedules') {

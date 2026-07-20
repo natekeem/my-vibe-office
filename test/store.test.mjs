@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { Store } from '../src/store.mjs';
+import { initGitRepo } from '../test-support/helpers.mjs';
 
 async function tempStore() {
   const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'agent-office-'));
@@ -59,8 +60,21 @@ test('OpenCode is a supported agent adapter', async (t) => {
   assert.equal(agent.adapter, 'opencode');
 });
 
+test('custom Anthropic-compatible CLI profiles can be assigned and safely removed', async (t) => {
+  const { store, dir } = await tempStore();
+  t.after(() => fs.promises.rm(dir, { recursive: true, force: true }));
+  const profile = await store.saveAdapter({ id: 'claude-samsung', label: 'Claude Samsung', family: 'claude', executable: 'claude-samsung', args: ['-p', '{prompt}'], env: { ANTHROPIC_BASE_URL: 'https://llm.internal', ANTHROPIC_AUTH_TOKEN: '{env:COMPANY_TOKEN}' } });
+  assert.equal(profile.family, 'claude');
+  const agent = await store.saveAgent({ name: 'Samsung FE', adapter: 'claude-samsung' });
+  assert.equal(agent.adapter, 'claude-samsung');
+  await assert.rejects(() => store.removeAdapter('claude-samsung'), /사용하는 에이전트/);
+  await store.saveAgent({ ...agent, adapter: 'codex' });
+  assert.equal(await store.removeAdapter('claude-samsung'), true);
+});
+
 test('projects persist and can be removed', async (t) => {
   const { store, dir } = await tempStore();
+  await initGitRepo(dir);
   t.after(() => fs.promises.rm(dir, { recursive: true, force: true }));
   const project = await store.saveProject({ name: 'Local project', path: dir, description: 'test workspace' });
   assert.equal(store.listProjects()[0].path, path.resolve(dir));
@@ -70,6 +84,7 @@ test('projects persist and can be removed', async (t) => {
 
 test('repo stores assigned agents, master and handoff pipeline', async (t) => {
   const { store, dir } = await tempStore();
+  await initGitRepo(dir);
   t.after(() => fs.promises.rm(dir, { recursive: true, force: true }));
   const pm = await store.saveAgent({ name: 'PM', adapter: 'custom' });
   const developer = await store.saveAgent({ name: 'Developer', adapter: 'custom' });

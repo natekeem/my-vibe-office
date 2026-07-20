@@ -1,9 +1,19 @@
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { agentWorktreePath, ensureAgentWorktree, inspectRepository } from './repository.mjs';
 
 function resolveArgs(template, values) {
   return template.map((arg) => String(arg).replaceAll('{prompt}', values.prompt).replaceAll('{workdir}', values.workdir).replaceAll('{model}', values.model).replaceAll('{sessionId}', values.sessionId || ''));
+}
+
+function resolveEnvironment(configured = {}) {
+  const resolved = {};
+  for (const [name, value] of Object.entries(configured || {})) {
+    const reference = String(value).match(/^\{env:([A-Za-z_][A-Za-z0-9_]*)\}$/);
+    resolved[name] = reference ? (process.env[reference[1]] || '') : String(value);
+  }
+  return resolved;
 }
 
 export class Runner {
@@ -22,6 +32,9 @@ export class Runner {
 
   resourceKey(card) {
     const settings = this.store.snapshot().settings;
+    const project = card?.projectId ? this.store.getProject(card.projectId) : null;
+    const agent = card?.agentId ? this.store.getAgent(card.agentId) : null;
+    if (project?.executionMode === 'isolated-worktrees' && agent) return path.resolve(agentWorktreePath(project.path, agent)).toLowerCase();
     return path.resolve(card?.workdir || settings.defaultWorkdir || process.cwd()).toLowerCase();
   }
 
@@ -61,25 +74,37 @@ export class Runner {
     if (this.runningCount() >= settings.concurrency) throw new Error(`동시 실행 한도(${settings.concurrency})에 도달했습니다.`);
     const conflict = this.conflictReason(cardId);
     if (conflict) throw new Error(conflict);
-    const adapter = settings.adapters[agent.adapter];
-    if (!adapter?.executable) throw new Error(`${agent.adapter} 실행 파일이 설정되지 않았습니다.`);
-    const workdir = card.workdir || settings.defaultWorkdir || process.cwd();
-    if (!fs.existsSync(workdir) || !fs.statSync(workdir).isDirectory()) throw new Error(`작업 폴더를 찾을 수 없습니다: ${workdir}`);
-    const followups = (card.followups || []).map((item, index) => `후속 지시 ${index + 1}: ${item.text}`).join('\n');
-    const isResume = agent.adapter === 'codex' && card.sessionId && card.pendingFollowup && adapter.resumeArgs;
-    let prompt = agent.systemPrompt ? `${agent.systemPrompt}\n\n--- 작업 ---\n${card.prompt}` : card.prompt;
-    if (isResume) prompt = card.pendingFollowup;
-    else if (followups) prompt += `\n\n--- 후속 지시 ---\n${followups}`;
-    const args = resolveArgs(isResume ? adapter.resumeArgs : adapter.args, { prompt, workdir, model: agent.model || '', sessionId: card.sessionId });
     this.reservations.add(cardId);
-    try { await this.store.prepareRun(cardId); }
+    let adapter, workdir, isResume, args;
+    try {
+      const project = card.projectId ? this.store.getProject(card.projectId) : null;
+      if (!project) throw new Error('작업을 실행할 Git repo Office가 연결되지 않았습니다.');
+      const repository = await inspectRepository(project.path);
+      if (!repository.valid) throw new Error(`Office Git repo를 확인할 수 없습니다: ${repository.error}`);
+      adapter = settings.adapters[agent.adapter];
+      if (!adapter?.executable) throw new Error(`${agent.adapter} 실행 파일이 설정되지 않았습니다.`);
+      workdir = card.workdir || project.path;
+      if (project.executionMode === 'isolated-worktrees') {
+        const prepared = await ensureAgentWorktree(project.path, agent);
+        workdir = prepared.path;
+        if (card.workdir !== workdir) await this.store.updateCard(cardId, { workdir });
+      }
+      if (!fs.existsSync(workdir) || !fs.statSync(workdir).isDirectory()) throw new Error(`작업 폴더를 찾을 수 없습니다: ${workdir}`);
+      const followups = (card.followups || []).map((item, index) => `후속 지시 ${index + 1}: ${item.text}`).join('\n');
+      isResume = agent.adapter === 'codex' && card.sessionId && card.pendingFollowup && adapter.resumeArgs;
+      let prompt = agent.systemPrompt ? `${agent.systemPrompt}\n\n--- 작업 ---\n${card.prompt}` : card.prompt;
+      if (isResume) prompt = card.pendingFollowup;
+      else if (followups) prompt += `\n\n--- 후속 지시 ---\n${followups}`;
+      args = resolveArgs(isResume ? adapter.resumeArgs : adapter.args, { prompt, workdir, model: agent.model || '', sessionId: card.sessionId });
+      await this.store.prepareRun(cardId);
+    }
     catch (error) { this.reservations.delete(cardId); throw error; }
     if (isResume) await this.store.updateCard(cardId, { pendingFollowup: null });
     this.emit('card', this.store.getCard(cardId));
 
     let child;
     try {
-      child = spawn(adapter.executable, args, { cwd: workdir, windowsHide: true, shell: false, env: { ...process.env, FORCE_COLOR: '0', NO_COLOR: '1' } });
+      child = spawn(adapter.executable, args, { cwd: workdir, windowsHide: true, shell: false, env: { ...process.env, ...resolveEnvironment(adapter.env), FORCE_COLOR: '0', NO_COLOR: '1' } });
     } catch (error) {
       this.reservations.delete(cardId);
       await this.fail(cardId, error.message);

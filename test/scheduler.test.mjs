@@ -5,16 +5,19 @@ import os from 'node:os';
 import path from 'node:path';
 import { nextScheduleAt, Store } from '../src/store.mjs';
 import { Scheduler } from '../src/scheduler.mjs';
+import { initGitRepo } from '../test-support/helpers.mjs';
 
 test('due one-time schedule creates and enqueues a card once', async (t) => {
   const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'agent-office-schedule-'));
+  await initGitRepo(dir);
   t.after(() => fs.promises.rm(dir, { recursive: true, force: true }));
   const store = new Store(path.join(dir, 'state.json'));
   await store.init();
   const agent = await store.saveAgent({ name: 'Scheduled agent', adapter: 'custom' });
+  const project = await store.saveProject({ name: 'Schedule repo', path: dir, agentIds: [agent.id] });
   const schedule = await store.saveSchedule({
     name: 'One shot', agentId: agent.id, prompt: 'scheduled prompt', workdir: dir,
-    type: 'once', runAt: new Date(Date.now() - 1000).toISOString(),
+    projectId: project.id, type: 'once', runAt: new Date(Date.now() - 1000).toISOString(),
   });
   const enqueued = [];
   const scheduler = new Scheduler(store, { enqueue: async (cardId) => enqueued.push(cardId) });

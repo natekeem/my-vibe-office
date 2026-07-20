@@ -80,18 +80,31 @@
 - [x] GitHub Projects v2 읽기 전용 목록과 권한 안내
 - [x] portable Windows 앱 갱신
 
-## v0.8 후보
+## v0.8 완료
 
-- GitHub Projects Status와 로컬 칸반 양방향 동기화
-- Pull Request·리뷰·CI 완료 게이트
+- [x] Office를 canonical local Git repo 최상위 단위로 재정의
+- [x] 유효한 Office가 없을 때 팀·작업 메뉴 잠금
+- [x] 프로젝트와 Git 연동을 Office 관리 화면으로 통합
+- [x] Issues·Projects Kanban·PR·Branches·History·Worktrees 탭
+- [x] Code Agent 선택형 상세 인벤토리
+- [x] 사내 Anthropic 호환 커스텀 CLI 프로필과 환경 라우팅
+- [x] 새 에이전트의 현재 Office 자동 배치
+- [x] Office 범위 작업·예약 실행 강제
+- [x] 에이전트별 Git branch·worktree 자동 생성과 재사용
+- [x] 저장소 검사 중 실행 예약 경쟁 조건 방지
+- [x] portable Windows 앱 갱신
+
+## v0.9 후보
+
+- GitHub Projects Status와 로컬 칸반 선택적 양방향 동기화
+- worktree diff 검토·테스트·PR 생성·마스터 병합 게이트
+- Pull Request·리뷰·CI 완료 조건 연결
+- 파일 소유권·변경 경로 중복 검사
 - Claude/OpenCode 버전별 stream-json 파서와 토큰 통계
 - 실제 subagent 부모·자식 실행 트리와 비용 추적
-- Git worktree·에이전트 브랜치 자동 생성과 정리
-- 파일 소유권·변경 경로 중복 검사와 마스터 통합 게이트
-- 병렬 분기·합류가 가능한 카드 의존성 DAG
+- adapter endpoint health check와 모델 목록 조회
+- 병렬 분기·합류 카드 의존성 DAG
 - 일정 실패 재시도·백오프, 장기 로그 회전
-- 사용자 브랜드 아이콘과 코드 서명
-- 캐릭터 외형·가구·방 테마 커스터마이징
 
 ## 원본과 대조할 추가 연구
 

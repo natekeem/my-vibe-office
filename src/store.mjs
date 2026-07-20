@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { inspectRepository } from './repository.mjs';
 
 const now = () => new Date().toISOString();
 const id = (prefix) => `${prefix}_${crypto.randomUUID()}`;
@@ -32,13 +33,13 @@ export const DEFAULT_STATE = Object.freeze({
     activeProjectId: '',
     adapters: {
       codex: {
-        label: 'Codex', executable: 'codex',
+        label: 'Codex', family: 'codex', builtIn: true, executable: 'codex', env: {},
         args: ['exec', '--json', '--color', 'never', '--skip-git-repo-check', '{prompt}'],
         resumeArgs: ['exec', 'resume', '--json', '--skip-git-repo-check', '{sessionId}', '{prompt}'],
       },
-      claude: { label: 'Claude Code', executable: 'claude', args: ['-p', '{prompt}'] },
-      opencode: { label: 'OpenCode', executable: 'opencode', args: ['run', '--format', 'json', '{prompt}'] },
-      custom: { label: '사용자 지정', executable: '', args: ['{prompt}'] },
+      claude: { label: 'Claude Code', family: 'claude', builtIn: true, executable: 'claude', args: ['-p', '{prompt}'], env: {} },
+      opencode: { label: 'OpenCode', family: 'opencode', builtIn: true, executable: 'opencode', args: ['run', '--format', 'json', '{prompt}'], env: {} },
+      custom: { label: '사용자 지정', family: 'custom', builtIn: true, executable: '', args: ['{prompt}'], env: {} },
     },
   },
   agents: [],
@@ -70,6 +71,9 @@ export class Store {
           adapters: { ...clone(DEFAULT_STATE.settings.adapters), ...(parsed.settings?.adapters || {}) },
         },
       };
+      for (const [key, adapter] of Object.entries(this.state.settings.adapters || {})) {
+        this.state.settings.adapters[key] = { ...(clone(DEFAULT_STATE.settings.adapters[key] || {})), id: key, env: {}, ...adapter, env: { ...(adapter.env || {}) } };
+      }
     } catch (error) {
       if (error.code !== 'ENOENT') {
         const backup = `${this.file}.broken-${Date.now()}`;
@@ -122,7 +126,7 @@ export class Store {
     const clean = {
       name: String(input.name || '').trim(),
       role: String(input.role || '').trim(),
-      adapter: ['codex', 'claude', 'opencode', 'custom'].includes(input.adapter) ? input.adapter : 'codex',
+      adapter: Object.hasOwn(this.state.settings.adapters || {}, input.adapter) ? input.adapter : 'codex',
       model: String(input.model || '').trim(),
       color: /^#[0-9a-f]{6}$/i.test(input.color || '') ? input.color : '#7c6ff7',
       systemPrompt: String(input.systemPrompt || '').trim(),
@@ -150,6 +154,19 @@ export class Store {
     }
     await this.persist();
     return before !== this.state.agents.length;
+  }
+
+  async assignAgentToProject(projectId, agentId) {
+    const project = this.state.settings.projects?.find((item) => item.id === projectId);
+    if (!project || !this.state.agents.some((agent) => agent.id === agentId)) throw new Error('Office 또는 에이전트를 찾을 수 없습니다.');
+    project.agentIds ||= [];
+    project.pipeline ||= [];
+    if (!project.agentIds.includes(agentId)) project.agentIds.push(agentId);
+    if (!project.pipeline.includes(agentId)) project.pipeline.push(agentId);
+    if (!project.masterAgentId) project.masterAgentId = agentId;
+    project.updatedAt = now();
+    await this.persist();
+    return clone(project);
   }
 
   listCards() { return clone(this.state.cards).sort((a, b) => b.createdAt.localeCompare(a.createdAt)); }
@@ -267,6 +284,7 @@ export class Store {
         executable: String(next.executable || '').trim(),
         args: Array.isArray(next.args) ? next.args.map(String) : adapters[key].args,
         resumeArgs: Array.isArray(next.resumeArgs) ? next.resumeArgs.map(String) : adapters[key].resumeArgs,
+        env: next.env && typeof next.env === 'object' ? Object.fromEntries(Object.entries(next.env).map(([name, value]) => [String(name).trim(), String(value)]).filter(([name]) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(name))) : (adapters[key].env || {}),
       };
     }
     const defaultWorkdir = Object.hasOwn(input, 'defaultWorkdir') ? String(input.defaultWorkdir || '').trim() : this.state.settings.defaultWorkdir;
@@ -279,15 +297,44 @@ export class Store {
     return clone(this.state.settings);
   }
 
+  async saveAdapter(input) {
+    const requestedId = String(input.id || input.label || '').trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
+    if (!requestedId) throw new Error('CLI 프로필 ID가 필요합니다.');
+    const existing = this.state.settings.adapters?.[requestedId];
+    if (existing?.builtIn && input.create) throw new Error('기본 CLI 프로필 ID는 사용할 수 없습니다.');
+    const family = ['codex', 'claude', 'opencode', 'custom'].includes(input.family) ? input.family : 'custom';
+    const env = input.env && typeof input.env === 'object'
+      ? Object.fromEntries(Object.entries(input.env).map(([name, value]) => [String(name).trim(), String(value)]).filter(([name]) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(name)))
+      : {};
+    this.state.settings.adapters ||= {};
+    this.state.settings.adapters[requestedId] = {
+      ...(existing || {}), id: requestedId, label: String(input.label || requestedId).trim(), family,
+      builtIn: Boolean(existing?.builtIn), executable: String(input.executable || '').trim(),
+      args: Array.isArray(input.args) ? input.args.map(String) : ['{prompt}'], env,
+    };
+    await this.persist();
+    return clone(this.state.settings.adapters[requestedId]);
+  }
+
+  async removeAdapter(adapterId) {
+    const adapter = this.state.settings.adapters?.[adapterId];
+    if (!adapter) return false;
+    if (adapter.builtIn || ['codex', 'claude', 'opencode', 'custom'].includes(adapterId)) throw new Error('기본 CLI 프로필은 삭제할 수 없습니다.');
+    if (this.state.agents.some((agent) => agent.adapter === adapterId)) throw new Error('이 CLI 프로필을 사용하는 에이전트를 먼저 변경하세요.');
+    delete this.state.settings.adapters[adapterId];
+    await this.persist();
+    return true;
+  }
+
   listProjects() { return clone(this.state.settings.projects || []); }
   getProject(projectId) { return clone((this.state.settings.projects || []).find((project) => project.id === projectId) || null); }
 
   async saveProject(input) {
     const name = String(input.name || '').trim();
-    const projectPath = path.resolve(String(input.path || '').trim());
     if (!name || !input.path) throw new Error('프로젝트 이름과 폴더가 필요합니다.');
-    try { if (!(await fs.promises.stat(projectPath)).isDirectory()) throw new Error(); }
-    catch { throw new Error(`프로젝트 폴더를 찾을 수 없습니다: ${projectPath}`); }
+    const inspected = await inspectRepository(String(input.path || '').trim());
+    if (!inspected.valid) throw new Error(`Git repo를 확인할 수 없습니다: ${inspected.error}`);
+    const projectPath = inspected.root;
     this.state.settings.projects ||= [];
     const found = input.id && this.state.settings.projects.find((p) => p.id === input.id);
     const validAgents = new Set(this.state.agents.map((agent) => agent.id));
@@ -301,13 +348,16 @@ export class Store {
     const clean = {
       name, path: projectPath, description: String(input.description || '').trim(),
       agentIds, masterAgentId, pipeline,
+      gitRemote: inspected.remotes.find((remote) => remote.name === 'origin')?.url || '',
       executionMode: input.executionMode === 'isolated-worktrees' ? 'isolated-worktrees' : 'shared-serial',
       updatedAt: now(),
     };
     if (found) Object.assign(found, clean);
     else this.state.settings.projects.push({ id: id('project'), ...clean, createdAt: now() });
+    const saved = found || this.state.settings.projects.at(-1);
+    if (!this.state.settings.activeProjectId) this.state.settings.activeProjectId = saved.id;
     await this.persist();
-    return clone(found || this.state.settings.projects.at(-1));
+    return clone(saved);
   }
 
   async removeProject(projectId) {
@@ -365,10 +415,13 @@ export class Store {
     const runAt = type === 'once' ? requestedRunAt.toISOString() : null;
     const time = /^\d{2}:\d{2}$/.test(input.time || '') ? input.time : '09:00';
     const weekday = Math.max(0, Math.min(6, Number(input.weekday ?? 1)));
-    if (!this.state.agents.some((a) => a.id === input.agentId)) throw new Error('에이전트를 선택하세요.');
+    const projectId = String(input.projectId || this.state.settings.activeProjectId || '');
+    const project = this.getProject(projectId);
+    if (!project) throw new Error('예약 작업을 실행할 Git repo Office를 선택하세요.');
+    if (!project.agentIds?.includes(input.agentId)) throw new Error('현재 Office에 배치된 에이전트를 선택하세요.');
     const clean = {
       name: String(input.name || '').trim(), agentId: input.agentId,
-      prompt: String(input.prompt || '').trim(), workdir: String(input.workdir || '').trim(),
+      prompt: String(input.prompt || '').trim(), workdir: project.path, projectId: project.id,
       type, intervalMinutes, runAt, time, weekday, enabled: input.enabled !== false,
     };
     clean.nextRunAt = nextScheduleAt(clean, new Date());

@@ -1,40 +1,48 @@
-# v0.7 기능 감사
+# v0.8 기능 감사
 
 검토일: 2026-07-20 KST
 
-## 이번 버전의 보완 결과
+## 제품 계층 재정의
 
-| 영역 | 사용자 의도 | v0.7 결과 |
-|---|---|---|
-| Repo 컨텍스트 | Office보다 먼저 현재 작업 repo를 인식 | repo 선택기를 왼쪽 사이드바 최상단으로 이동하고 모든 주요 화면의 범위를 함께 전환 |
-| OpenCode | 사내 OpenCode를 기존 팀에 함께 배치 | 자동 감지, 기본 `opencode run --format json` 어댑터, 에이전트 선택과 설정 UI 추가 |
-| 구성 인벤토리 | CLI마다 실제 적용 중인 도구를 한눈에 확인 | Codex·Claude·OpenCode의 MCP, Skills, Rules/Instructions, Plugins, Agents/Subagents, Commands를 global/project 범위로 표시 |
-| 비밀정보 경계 | 설정을 보되 키와 프롬프트는 노출하지 않음 | 구성 이름·범위·출처·활성 상태만 추출하며 환경 변수 값과 프롬프트 본문은 반환하지 않음 |
-| Subagent / ITO | 담당 에이전트가 외부 전문 인력을 고용하는 느낌 | Claude/OpenCode 담당자 아래에 사용 가능한 subagent 인력풀을 배치하고 실제 Agent/Task 호출을 최근 투입 기록으로 시각화 |
-| GitHub Issues | 요청과 실행 작업을 Git 이슈로 연결 | Issue 생성, 기존 Issue의 로컬 작업 카드 가져오기, Issue 닫기·다시 열기 동기화 구현 |
-| GitHub Projects | 칸반 현황을 Office에서 확인 | GitHub CLI 인증을 사용한 Projects v2 목록 조회와 권한 부족 안내 구현 |
+```text
+Office = canonical local Git repo
+  ├─ Git: Issues / Kanban / PR / Branches / History / Worktrees
+  ├─ Code Agents: Codex / Claude / OpenCode / custom compatible profiles
+  ├─ Team: assigned agents / master / handoff pipeline / subagents
+  └─ Work: cards / missions / schedules / usage / artifacts
+```
 
-## ITO 모델의 현재 의미
+유효한 Git repo가 연결되지 않으면 `오피스 관리`와 전역 `설정`을 제외한 메뉴가 비활성화됩니다. 폴더 안의 하위 경로를 선택해도 `git rev-parse --show-toplevel`로 canonical root를 저장합니다.
 
-- 구성 파일에서 발견한 subagent는 ‘고용 가능 인력풀’로 표시합니다.
-- Claude/OpenCode 실행 로그에서 Agent 또는 Task 도구 호출이 관찰되면 ‘최근 실제 호출’에 기록합니다.
-- Workpets가 CLI 내부 subagent를 임의로 생성하거나 자체 중첩 실행하지는 않습니다. 각 CLI가 제공하는 위임 기능과 이벤트를 관찰하는 경계입니다.
-- 마스터 미션의 PM → 개발 → 디자인 → QA 인계는 기존 Workpets 오케스트레이터가 계속 담당합니다.
+## 구현 결과
 
-## GitHub 안전 경계
+| 영역 | v0.8 결과 |
+|---|---|
+| 시작 흐름 | 첫 Office 등록 → Code Agent 확인 → 전담 팀 구성 → 작업 실행 순서로 온보딩 |
+| 메뉴 통합 | 기존 프로젝트와 Git 연동을 `오피스 관리`로 통합 |
+| Git 저장소 | branch, upstream, ahead/behind, working tree 변경, remotes, commit history, worktrees 조회 |
+| GitHub | Issues, Projects v2 Kanban items, Pull Requests와 CI rollup 데이터 조회 |
+| Team 범위 | 에이전트·작업·예약·사용량을 활성 Office 기준으로 제한 |
+| Code Agents | CLI 카드 선택 시 해당 프로필 구성 하나만 하단 상세로 표시 |
+| 사내 LLM | 동적 CLI 프로필 ID·표시명·호환 계열·실행 파일·인자·환경 라우팅 저장 |
+| 비밀값 | `{env:COMPANY_TOKEN}` 참조를 실행 시 환경 변수 값으로 치환하고 인벤토리에는 값 미노출 |
+| 충돌 방지 | shared 모드는 repo 직렬 잠금, isolated 모드는 에이전트별 영속 branch/worktree 자동 생성 |
 
-- GitHub 연동은 현재 repo의 `origin`과 로컬 `gh` 인증을 사용합니다.
-- 사용자가 버튼을 눌렀을 때만 Issue를 생성하거나 상태를 변경합니다.
-- Issue를 작업으로 가져와도 자동 실행하지 않고 TO-DO 카드로만 만듭니다.
-- Projects v2는 읽기 전용이며 프로젝트 필드나 카드를 변경하지 않습니다.
+## GitHub 권한 경계
 
-## 남은 고도화 작업
+- 로컬 Git 정보는 GitHub 인증 없이 조회합니다.
+- Issues와 PR은 현재 repo `origin` 및 로컬 `gh` 인증을 사용합니다.
+- Projects v2 항목은 `read:project` scope가 있을 때 읽기 전용으로 표시합니다.
+- Issue 생성·상태 변경은 명시적인 사용자 버튼에서만 실행합니다.
+- Project 필드 변경, branch 병합, PR 생성은 아직 자동화하지 않습니다.
 
-- GitHub Projects v2 Status와 로컬 보드 상태의 양방향 매핑
-- Pull Request·리뷰·CI 상태를 작업 완료 게이트로 연결
-- OpenCode/Claude 버전별 스트림 이벤트 정규화와 토큰 통계 보강
-- 실제 중첩 subagent의 부모·자식 실행 트리, 비용, 토큰, 종료 상태 추적
-- 에이전트별 Git worktree·브랜치 자동 생성과 마스터 통합 게이트
+## 남은 다음 단계
+
+- Projects v2 Status와 로컬 작업 보드의 선택적 양방향 동기화
+- 에이전트 worktree 결과의 diff 검토·테스트·PR 생성·마스터 병합 게이트
 - 파일 소유권과 변경 경로 중복 사전 검사
+- subagent 부모·자식 실행 트리, 토큰·비용·종료 상태 정규화
+- 사내 endpoint 연결 진단과 환경 변수 누락 사전 검사
+- adapter별 health check와 버전·모델 목록 조회
 
 원본 앱의 라이선스, 결제, 업데이트, 텔레메트리, 피드백 전송, 원격 터널 기능은 포함하지 않습니다.

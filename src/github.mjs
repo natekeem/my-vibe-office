@@ -15,7 +15,7 @@ function slugFromRemote(remote) {
 }
 
 export async function inspectGithub(projectPath) {
-  const result = { available: false, authenticated: false, slug: '', issues: [], projects: [], error: '', scannedAt: new Date().toISOString() };
+  const result = { available: false, authenticated: false, slug: '', issues: [], pullRequests: [], projects: [], error: '', scannedAt: new Date().toISOString() };
   if (!projectPath) return result;
   try {
     result.slug = slugFromRemote(await run('git', ['-C', projectPath, 'remote', 'get-url', 'origin']));
@@ -24,10 +24,17 @@ export async function inspectGithub(projectPath) {
     await run('gh', ['auth', 'status']);
     result.authenticated = true;
     result.issues = JSON.parse(await run('gh', ['issue', 'list', '--repo', result.slug, '--state', 'all', '--limit', '50', '--json', 'number,title,state,url,labels,assignees,updatedAt']));
+    result.pullRequests = JSON.parse(await run('gh', ['pr', 'list', '--repo', result.slug, '--state', 'all', '--limit', '30', '--json', 'number,title,state,url,headRefName,baseRefName,isDraft,updatedAt,statusCheckRollup']));
     const owner = result.slug.split('/')[0];
     try {
       const raw = JSON.parse(await run('gh', ['project', 'list', '--owner', owner, '--limit', '20', '--format', 'json']));
       result.projects = raw.projects || raw || [];
+      for (const board of result.projects.slice(0, 8)) {
+        try {
+          const detail = JSON.parse(await run('gh', ['project', 'item-list', String(board.number), '--owner', owner, '--limit', '50', '--format', 'json']));
+          board.items = detail.items || [];
+        } catch (error) { board.itemError = String(error.stderr || error.message || '').trim().slice(0, 200); }
+      }
     } catch (error) { result.projectError = String(error.stderr || error.message || '').trim().slice(0, 300); }
   } catch (error) {
     result.error = String(error.stderr || error.message || '').trim().slice(0, 500);

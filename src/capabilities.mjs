@@ -13,6 +13,20 @@ function readText(file, limit = 1024 * 1024) {
   } catch { return ''; }
 }
 
+function resolveExecutable(value) {
+  const command = String(value || '').trim();
+  if (!command) return '';
+  if (path.isAbsolute(command) && exists(command)) return command;
+  const extensions = process.platform === 'win32' ? ['', '.exe', '.cmd', '.bat'] : [''];
+  for (const dir of String(process.env.PATH || '').split(path.delimiter)) {
+    for (const extension of extensions) {
+      const candidate = path.join(dir.replace(/^"|"$/g, ''), command + extension);
+      try { if (fs.statSync(candidate).isFile()) return candidate; } catch {}
+    }
+  }
+  return '';
+}
+
 function readJson(file) {
   const text = readText(file);
   if (!text) return null;
@@ -148,23 +162,35 @@ function inspectOpenCode(home, projectPath, executable) {
   return client('opencode', 'OpenCode', executable, items);
 }
 
-function client(id, label, executable, items) {
+function client(id, label, executable, items, family = id) {
   const unique = [...new Map(items.map((item) => [`${item.type}|${item.scope}|${item.name}|${item.source}`, item])).values()];
   const counts = {};
   for (const item of unique) counts[item.type] = (counts[item.type] || 0) + 1;
-  return { id, label, installed: Boolean(executable), executable: executable || '', counts, items: unique };
+  return { id, label, family, installed: Boolean(executable), executable: executable || '', counts, items: unique };
 }
 
-export function inspectCapabilities({ projectPath = '', detected = {} } = {}) {
+export function inspectCapabilities({ projectPath = '', detected = {}, adapters = {} } = {}) {
   const home = os.homedir();
   const root = projectPath && exists(projectPath) ? path.resolve(projectPath) : process.cwd();
+  const core = [
+    inspectCodex(home, root, detected.codex || resolveExecutable(adapters.codex?.executable)),
+    inspectClaude(home, root, detected.claude || resolveExecutable(adapters.claude?.executable)),
+    inspectOpenCode(home, root, detected.opencode || resolveExecutable(adapters.opencode?.executable)),
+  ];
+  const byFamily = Object.fromEntries(core.map((item) => [item.id, item]));
+  const custom = Object.entries(adapters || {}).filter(([id]) => !['codex', 'claude', 'opencode', 'custom'].includes(id)).map(([id, adapter]) => {
+    const inherited = byFamily[adapter.family]?.items || [];
+    const items = inherited.map((item) => ({ ...item }));
+    items.push({ type: 'runtime', name: '실행 명령', scope: 'profile', source: 'Workpets settings', detail: `${adapter.executable || '미설정'} ${(adapter.args || []).join(' ')}`.trim(), enabled: Boolean(adapter.executable) });
+    for (const [name, value] of Object.entries(adapter.env || {})) {
+      const reference = String(value).match(/^\{env:([A-Za-z_][A-Za-z0-9_]*)\}$/);
+      items.push({ type: 'runtime', name, scope: 'profile', source: 'Workpets settings', detail: reference ? `환경 변수 ${reference[1]}에서 주입` : '프로필에 로컬 값 설정됨', enabled: true });
+    }
+    return client(id, adapter.label || id, resolveExecutable(adapter.executable), items, adapter.family || 'custom');
+  });
   return {
     projectPath: root,
     scannedAt: new Date().toISOString(),
-    clients: [
-      inspectCodex(home, root, detected.codex),
-      inspectClaude(home, root, detected.claude),
-      inspectOpenCode(home, root, detected.opencode),
-    ],
+    clients: [...core, ...custom],
   };
 }

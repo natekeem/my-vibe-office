@@ -5,9 +5,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { Store } from '../src/store.mjs';
 import { Orchestrator } from '../src/orchestrator.mjs';
+import { initGitRepo } from '../test-support/helpers.mjs';
 
 test('master mission hands successful output to the next agent', async (t) => {
   const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'agent-office-mission-'));
+  await initGitRepo(dir);
   t.after(() => fs.promises.rm(dir, { recursive: true, force: true }));
   const store = new Store(path.join(dir, 'state.json'));
   await store.init();

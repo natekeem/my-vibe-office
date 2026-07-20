@@ -15,7 +15,8 @@ Codex, Claude Code 같은 로컬 CLI 에이전트에게 일을 배정하고 상�
 - 기능 구현·진단·검토·리서치·문서화 작업 지시 템플릿
 - 상세 작업 생성 후 즉시 실행 옵션
 - 프로젝트 폴더 프리셋과 네이티브 폴더 선택기
-- 왼쪽 사이드바 최상단 repo 선택기와 repo별 전담 에이전트·마스터·인계 순서 설정
+- Office를 유효한 로컬 Git repo에 연결한 뒤 팀·작업 기능을 여는 계층형 시작 흐름
+- 왼쪽 사이드바 최상단 Office 선택기와 repo별 전담 에이전트·마스터·인계 순서 설정
 - 마스터 목표를 PM → 개발 → 디자인 → QA처럼 순차 인계하는 멀티 에이전트 미션
 - 같은 작업 경로의 동시 쓰기를 막는 repo 경로 잠금과 대기 사유 표시
 - Codex·Claude Code·OpenCode 어댑터와 사용자 지정 명령 템플릿
@@ -23,6 +24,9 @@ Codex, Claude Code 같은 로컬 CLI 에이전트에게 일을 배정하고 상�
 - CLI별 MCP·Skills·Rules·Plugins·Subagents 적용 현황 인벤토리
 - Claude/OpenCode 서브에이전트 인력풀과 실제 호출을 보여주는 ITO 시각화
 - GitHub Issues 생성·가져오기·상태 동기화와 Projects v2 조회
+- Office 관리 화면의 Issues·Kanban·Pull Requests·Branches·History·Worktrees 통합 탭
+- `claude-samsung` 같은 사내 Anthropic 호환 CLI 프로필과 환경 라우팅
+- 격리 모드의 에이전트별 Git branch·worktree 자동 준비
 - 동시 실행 대기열과 자동 순차 실행
 - 실행 중 stdout/stderr 실시간 스트리밍(SSE)
 - Codex JSONL 구조화 로그, repo·에이전트·실행별 입력/출력 토큰과 실행시간 통계
@@ -34,7 +38,7 @@ Codex, Claude Code 같은 로컬 CLI 에이전트에게 일을 배정하고 상�
 - 데스크톱 트레이, 작업 완료 알림, Windows 자동 시작
 - 산출물 미리보기와 Windows 파일 탐색기 열기
 - 설치 없이 Node.js만으로 실행되는 로컬 서버
-- 외부 서버, 분석 전송, 라이선스, 자동 업데이트 코드 없음
+- 자체 백엔드 서버·분석 전송·라이선스·자동 업데이트 코드 없음. GitHub 탭은 사용자의 로컬 `gh` 인증으로 해당 repo 정보만 조회
 
 ## 실행
 
@@ -47,7 +51,7 @@ cd 'C:\Users\samsung\OneDrive\문서\workpets-local'
 
 또는 `npm start`를 실행합니다. 기본 주소는 `http://127.0.0.1:4317`입니다.
 
-개발용 데스크톱 창은 의존성을 설치한 뒤 `npm run desktop`으로 실행합니다. 패키징된 버전은 `release/Local-Agent-Office-0.7.0.exe`입니다. 이 실행 파일은 설치 없이 실행되는 portable 앱이며 상태는 Windows 사용자 앱 데이터 폴더에 저장합니다. 창을 닫으면 트레이로 숨고 트레이 메뉴에서 완전히 종료할 수 있습니다.
+개발용 데스크톱 창은 의존성을 설치한 뒤 `npm run desktop`으로 실행합니다. 패키징된 버전은 `release/Local-Agent-Office-0.8.0.exe`입니다. 이 실행 파일은 설치 없이 실행되는 portable 앱이며 상태는 Windows 사용자 앱 데이터 폴더에 저장합니다. 창을 닫으면 트레이로 숨고 트레이 메뉴에서 완전히 종료할 수 있습니다.
 
 새 portable 파일을 만들려면 `npm run dist`를 실행합니다. 빌드는 OneDrive 파일 잠금을 피하기 위해 `%LOCALAPPDATA%\Temp`에서 수행되고 완성본만 `release/`로 복사됩니다.
 
@@ -79,7 +83,7 @@ args: exec, --json, {prompt}
 - [로컬 API](docs/API.md)
 - [개발 로드맵](docs/ROADMAP.md)
 - [QA 결과](docs/QA_REPORT.md)
-- [v0.7 기능 감사](docs/FEATURE_AUDIT.md)
+- [v0.8 기능 감사](docs/FEATURE_AUDIT.md)
 
 ## 주의
 

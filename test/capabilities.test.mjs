@@ -17,12 +17,15 @@ test('capability inventory discovers project OpenCode configuration without expo
     plugin: ['company-plugin'], instructions: ['RULES.md'],
     agent: { reviewer: { mode: 'subagent', description: 'Review changes' } },
   }), 'utf8');
-  const inventory = inspectCapabilities({ projectPath: dir, detected: { opencode: 'opencode.exe' } });
+  const inventory = inspectCapabilities({ projectPath: dir, detected: { opencode: 'opencode.exe' }, adapters: { 'claude-samsung': { label: 'Claude Samsung', family: 'claude', executable: process.execPath, args: ['-p', '{prompt}'], env: { ANTHROPIC_BASE_URL: 'https://secret.internal', ANTHROPIC_AUTH_TOKEN: '{env:COMPANY_TOKEN}' } } } });
   const opencode = inventory.clients.find((client) => client.id === 'opencode');
   assert.equal(opencode.installed, true);
   assert.ok(opencode.items.some((item) => item.type === 'mcp' && item.name === 'internal' && item.scope === 'project'));
   assert.ok(opencode.items.some((item) => item.type === 'plugins' && item.name === 'company-plugin'));
   assert.ok(opencode.items.some((item) => item.type === 'skills' && item.name === 'release'));
   assert.ok(opencode.items.some((item) => item.type === 'subagents' && item.name === 'frontend'));
-  assert.doesNotMatch(JSON.stringify(opencode), /must-not-leak|Secret prompt body|Secret skill body/);
+  const internal = inventory.clients.find((client) => client.id === 'claude-samsung');
+  assert.equal(internal.installed, true);
+  assert.ok(internal.items.some((item) => item.type === 'runtime' && item.name === 'ANTHROPIC_BASE_URL'));
+  assert.doesNotMatch(JSON.stringify(inventory), /must-not-leak|Secret prompt body|Secret skill body|secret\.internal/);
 });

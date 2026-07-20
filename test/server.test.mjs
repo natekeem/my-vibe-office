@@ -5,9 +5,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { Store } from '../src/store.mjs';
 import { createServer } from '../src/server.mjs';
+import { initGitRepo } from '../test-support/helpers.mjs';
 
 test('health, agent and card API work end to end', async (t) => {
   const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'agent-office-api-'));
+  await initGitRepo(dir);
   t.after(() => fs.promises.rm(dir, { recursive: true, force: true }));
   const store = new Store(path.join(dir, 'state.json'));
   await store.init();

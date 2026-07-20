@@ -34,7 +34,7 @@ export class Scheduler {
     try {
       const card = await this.store.createCard({
         title: `[예약] ${schedule.name}`, prompt: schedule.prompt,
-        agentId: schedule.agentId, workdir: schedule.workdir,
+        agentId: schedule.agentId, workdir: schedule.workdir, projectId: schedule.projectId,
       });
       const nextRunAt = schedule.type === 'once' ? null : nextScheduleAt(schedule, new Date(at.getTime() + 1000));
       await this.store.markScheduleRun(schedule.id, {

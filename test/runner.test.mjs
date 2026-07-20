@@ -5,9 +5,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { Store } from '../src/store.mjs';
 import { Runner } from '../src/runner.mjs';
+import { initGitRepo } from '../test-support/helpers.mjs';
 
 test('runner streams output and moves a successful card to review', async (t) => {
   const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'agent-office-runner-'));
+  await initGitRepo(dir);
   t.after(() => fs.promises.rm(dir, { recursive: true, force: true }));
   const store = new Store(path.join(dir, 'state.json'));
   await store.init();
@@ -17,7 +19,8 @@ test('runner streams output and moves a successful card to review', async (t) =>
     adapters: { custom: { executable: process.execPath, args: ['-e', 'console.log(process.argv[1])', '{prompt}'] } },
   });
   const agent = await store.saveAgent({ name: 'Test runner', adapter: 'custom', systemPrompt: 'SYSTEM' });
-  const card = await store.createCard({ title: 'Run', prompt: 'PROMPT', agentId: agent.id, workdir: dir });
+  const project = await store.saveProject({ name: 'Runner repo', path: dir, agentIds: [agent.id] });
+  const card = await store.createCard({ title: 'Run', prompt: 'PROMPT', agentId: agent.id, workdir: dir, projectId: project.id });
   let resolveDone;
   const done = new Promise((resolve) => { resolveDone = resolve; });
   const runner = new Runner(store, (event, value) => {
@@ -36,13 +39,15 @@ test('runner streams output and moves a successful card to review', async (t) =>
 
 test('runner queues work beyond concurrency and pumps it after completion', async (t) => {
   const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'agent-office-queue-'));
+  await initGitRepo(dir);
   t.after(() => fs.promises.rm(dir, { recursive: true, force: true }));
   const store = new Store(path.join(dir, 'state.json'));
   await store.init();
   await store.saveSettings({ concurrency: 1, defaultWorkdir: dir, adapters: { custom: { executable: process.execPath, args: ['-e', 'setTimeout(()=>console.log(process.argv[1]),80)', '{prompt}'] } } });
   const agent = await store.saveAgent({ name: 'Queue', adapter: 'custom' });
-  const one = await store.createCard({ title: 'one', prompt: 'ONE', agentId: agent.id, workdir: dir });
-  const two = await store.createCard({ title: 'two', prompt: 'TWO', agentId: agent.id, workdir: dir });
+  const project = await store.saveProject({ name: 'Queue repo', path: dir, agentIds: [agent.id] });
+  const one = await store.createCard({ title: 'one', prompt: 'ONE', agentId: agent.id, workdir: dir, projectId: project.id });
+  const two = await store.createCard({ title: 'two', prompt: 'TWO', agentId: agent.id, workdir: dir, projectId: project.id });
   const runner = new Runner(store, () => {});
   const [, queued] = await Promise.all([runner.enqueue(one.id), runner.enqueue(two.id)]);
   assert.equal(queued.status, 'queued');
@@ -55,13 +60,15 @@ test('runner queues work beyond concurrency and pumps it after completion', asyn
 
 test('runner serializes agents that share the same repo path', async (t) => {
   const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'agent-office-lock-'));
+  await initGitRepo(dir);
   t.after(() => fs.promises.rm(dir, { recursive: true, force: true }));
   const store = new Store(path.join(dir, 'state.json'));
   await store.init();
   await store.saveSettings({ concurrency: 2, defaultWorkdir: dir, adapters: { custom: { executable: process.execPath, args: ['-e', 'setTimeout(()=>console.log(process.argv[1]),120)', '{prompt}'] } } });
   const agent = await store.saveAgent({ name: 'Safe writer', adapter: 'custom' });
-  const one = await store.createCard({ title: 'one', prompt: 'ONE', agentId: agent.id, workdir: dir });
-  const two = await store.createCard({ title: 'two', prompt: 'TWO', agentId: agent.id, workdir: dir });
+  const project = await store.saveProject({ name: 'Lock repo', path: dir, agentIds: [agent.id] });
+  const one = await store.createCard({ title: 'one', prompt: 'ONE', agentId: agent.id, workdir: dir, projectId: project.id });
+  const two = await store.createCard({ title: 'two', prompt: 'TWO', agentId: agent.id, workdir: dir, projectId: project.id });
   const runner = new Runner(store, () => {});
   const [, queued] = await Promise.all([runner.enqueue(one.id), runner.enqueue(two.id)]);
   assert.equal(queued.status, 'queued');
@@ -74,6 +81,7 @@ test('runner serializes agents that share the same repo path', async (t) => {
 
 test('Codex follow-up resumes the captured session', async (t) => {
   const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'agent-office-resume-'));
+  await initGitRepo(dir);
   t.after(() => fs.promises.rm(dir, { recursive: true, force: true }));
   const store = new Store(path.join(dir, 'state.json'));
   await store.init();
@@ -84,7 +92,8 @@ test('Codex follow-up resumes the captured session', async (t) => {
     resumeArgs: ['-e', 'console.log(process.argv[1])', '{sessionId}|{prompt}'],
   } } });
   const agent = await store.saveAgent({ name: 'Resume', adapter: 'codex' });
-  const card = await store.createCard({ title: 'resume', prompt: 'first', agentId: agent.id, workdir: dir });
+  const project = await store.saveProject({ name: 'Resume repo', path: dir, agentIds: [agent.id] });
+  const card = await store.createCard({ title: 'resume', prompt: 'first', agentId: agent.id, workdir: dir, projectId: project.id });
   const runner = new Runner(store, () => {});
   await runner.run(card.id);
   const firstDeadline = Date.now() + 3000;
@@ -100,13 +109,15 @@ test('Codex follow-up resumes the captured session', async (t) => {
 
 test('runner records Claude-style subagent hiring events', async (t) => {
   const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'agent-office-subagent-'));
+  await initGitRepo(dir);
   t.after(() => fs.promises.rm(dir, { recursive: true, force: true }));
   const store = new Store(path.join(dir, 'state.json'));
   await store.init();
   const event = { type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Agent', input: { subagent_type: 'frontend-helper', description: 'UI implementation' } }] } };
   await store.saveSettings({ concurrency: 1, defaultWorkdir: dir, adapters: { custom: { executable: process.execPath, args: ['-e', `console.log(${JSON.stringify(JSON.stringify(event))})`] } } });
   const agent = await store.saveAgent({ name: 'FE developer', adapter: 'custom' });
-  const card = await store.createCard({ title: 'Hire helper', prompt: 'work', agentId: agent.id, workdir: dir });
+  const project = await store.saveProject({ name: 'Subagent repo', path: dir, agentIds: [agent.id] });
+  const card = await store.createCard({ title: 'Hire helper', prompt: 'work', agentId: agent.id, workdir: dir, projectId: project.id });
   const runner = new Runner(store, () => {});
   await runner.run(card.id);
   const deadline = Date.now() + 3000;

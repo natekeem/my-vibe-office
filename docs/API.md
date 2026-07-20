@@ -19,6 +19,8 @@
 | GET | `/api/projects` | 프로젝트 폴더 프리셋 목록 |
 | POST | `/api/projects` | 프로젝트 생성 또는 `id` 기준 수정 |
 | DELETE | `/api/projects/{id}` | 프로젝트 삭제 |
+| GET | `/api/repository?projectId={id}` | canonical Git root·상태·branches·history·worktrees 조회 |
+| POST | `/api/repository/worktrees` | Office 에이전트 전용 branch·worktree 준비 |
 | GET | `/api/missions` | 멀티 에이전트 미션 목록 |
 | POST | `/api/missions` | repo 파이프라인 미션 생성·첫 단계 실행 |
 | POST | `/api/pick-folder` | 데스크톱 네이티브 폴더 선택기 |
@@ -40,6 +42,8 @@
 | POST | `/api/cards/{id}/move` | `todo`, `review`, `done`으로 이동 |
 | GET | `/api/settings` | 실행 설정 조회 |
 | PUT | `/api/settings` | 실행 설정 저장 |
+| POST | `/api/adapters` | 커스텀 CLI/사내 LLM 프로필 생성·수정 |
+| DELETE | `/api/adapters/{id}` | 사용 중이 아닌 커스텀 CLI 프로필 삭제 |
 | GET | `/api/artifacts?cardId={id}` | 실행 이후 변경된 작업 폴더 파일 |
 | GET | `/api/artifact?cardId={id}&path={path}` | 1 MiB 이하 텍스트 산출물 미리보기 |
 | POST | `/api/artifact/open` | 데스크톱 파일 탐색기에서 산출물 위치 표시 |
