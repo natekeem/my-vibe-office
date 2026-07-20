@@ -1,3 +1,5 @@
+import { resolveMissionRoute } from './routing.mjs';
+
 export class Orchestrator {
   constructor(store, runner, emit = () => {}) {
     this.store = store;
@@ -6,7 +8,10 @@ export class Orchestrator {
   }
 
   async startMission(input) {
-    const mission = await this.store.createMission(input);
+    const project = this.store.getProject(input.projectId);
+    if (!project) throw new Error('미션을 실행할 repo를 선택하세요.');
+    const route = resolveMissionRoute(project, this.store.listAgents(), input.prompt, input.workflowId || project.workflowId);
+    const mission = await this.store.createMission({ ...input, ...route });
     this.emit('mission', mission);
     const card = await this.createStep(mission, 0, null);
     await this.runner.enqueue(card.id);
@@ -19,13 +24,14 @@ export class Orchestrator {
     if (!project || !agent) throw new Error('미션의 repo 또는 담당 에이전트를 찾을 수 없습니다.');
     const previousOutput = previousCard?.output?.trim();
     const handoff = previousOutput
-      ? `\n\n--- 이전 단계 인계 ---\n담당: ${this.store.getAgent(previousCard.agentId)?.name || previousCard.agentId}\n결과:\n${previousOutput}`
+      ? `\n\n--- 이전 작업 인계 ---\n담당: ${this.store.getAgent(previousCard.agentId)?.name || previousCard.agentId}\n결과:\n${previousOutput}`
       : '';
     const prompt = [
       '[My Vibe Office 멀티 에이전트 미션]',
       `Repo: ${project.name} (${project.path})`,
+      `라우팅: ${mission.routingMode || 'adaptive'} · ${mission.workflowId || 'auto'}`,
       `전체 목표: ${mission.prompt}`,
-      `현재 단계: ${stepIndex + 1}/${mission.pipeline.length} · ${agent.name} (${agent.role || '담당 역할'})`,
+      `현재 단계: ${stepIndex + 1}/${mission.pipeline.length} · ${agent.name} (${agent.role || agent.modeId || '담당 역할'})`,
       '현재 역할의 책임 범위에서 작업하고, 다음 담당자가 이어받을 수 있도록 변경 사항, 검증 결과, 남은 위험을 정리하세요.',
     ].join('\n') + handoff;
     const card = await this.store.createCard({

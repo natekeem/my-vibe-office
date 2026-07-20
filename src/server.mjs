@@ -148,6 +148,8 @@ export function createServer({ store, runner, scheduler, orchestrator, integrati
           ...current,
           presetId: preset.id,
           role: preset.role,
+          modeId: preset.modeId,
+          specialties: preset.tags,
           systemPrompt: preset.prompt,
           color: input.keepColor ? current.color : preset.color,
           name: input.usePresetName ? preset.name : current.name,

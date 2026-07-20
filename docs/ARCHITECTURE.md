@@ -80,13 +80,13 @@ repo는 배치 에이전트, 마스터, 순차 파이프라인을 가진다. `Or
 
 ### Agent
 
-`id`, `name`, `role`, `presetId`, `adapter`, `model`, `color`, `systemPrompt`, `createdAt`, `updatedAt`
+`id`, `name`, `role`, `modeId`, `specialties`, `presetId`, `adapter`, `model`, `color`, `systemPrompt`, `createdAt`, `updatedAt`
 
 `presetId`는 현재 적용된 역할 프리셋을 식별한다. 역할 적용 API는 이름과 CLI 연결을 유지하면서 `role`, `systemPrompt`, 기본 색상을 하나의 원자적 설정 변경으로 갱신한다. 실제 실행 시 `Runner`가 `systemPrompt`를 카드별 작업 지시 앞에 결합한다.
 
 ### Project
 
-`id`, `name`, `path`, `description`, `agentIds`, `masterAgentId`, `pipeline`, `executionMode`, `createdAt`, `updatedAt`
+`id`, `name`, `path`, `description`, `agentIds`, `masterAgentId`, `pipeline`, `routingMode`, `workflowId`, `executionMode`, `createdAt`, `updatedAt`
 
 ### Card
 
@@ -94,7 +94,9 @@ repo는 배치 에이전트, 마스터, 순차 파이프라인을 가진다. `Or
 
 ### Mission
 
-`id`, `projectId`, `title`, `prompt`, `pipeline`, `masterAgentId`, `stepIndex`, `cardIds`, `currentCardId`, `status`, `finalOutput`, `error`
+`id`, `projectId`, `title`, `prompt`, `pipeline`, `routingMode`, `workflowId`, `masterAgentId`, `stepIndex`, `cardIds`, `currentCardId`, `status`, `finalOutput`, `error`
+
+`routingMode`는 `adaptive`, `manual`, `sequential` 중 하나다. adaptive 모드에서는 `src/routing.mjs`가 요청 의도와 워크플로 프리셋을 기준으로 현재 repo에 배치된 에이전트 중 필요한 `modeId`만 선택한다. 적합한 모드가 없으면 마스터 에이전트로 안전하게 폴백한다.
 
 ### Card 상태
 

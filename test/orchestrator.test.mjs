@@ -15,7 +15,7 @@ test('master mission hands successful output to the next agent', async (t) => {
   await store.init();
   const pm = await store.saveAgent({ name: 'PM', role: 'planner', adapter: 'custom' });
   const developer = await store.saveAgent({ name: 'Developer', role: 'implementation', adapter: 'custom' });
-  const project = await store.saveProject({ name: 'Mission repo', path: dir, agentIds: [pm.id, developer.id], masterAgentId: pm.id, pipeline: [pm.id, developer.id] });
+  const project = await store.saveProject({ name: 'Mission repo', path: dir, agentIds: [pm.id, developer.id], masterAgentId: pm.id, pipeline: [pm.id, developer.id], routingMode: 'sequential' });
   const enqueued = [];
   const runner = { enqueue: async (cardId) => enqueued.push(cardId) };
   const orchestrator = new Orchestrator(store, runner);

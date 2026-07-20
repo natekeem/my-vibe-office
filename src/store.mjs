@@ -131,6 +131,8 @@ export class Store {
       color: /^#[0-9a-f]{6}$/i.test(input.color || '') ? input.color : '#7c6ff7',
       systemPrompt: String(input.systemPrompt || '').trim(),
       presetId: String(input.presetId || '').trim(),
+      modeId: String(input.modeId || '').trim(),
+      specialties: Array.isArray(input.specialties) ? [...new Set(input.specialties.map(String).map((item) => item.trim()).filter(Boolean))].slice(0, 12) : [],
     };
     if (!clean.name) throw new Error('에이전트 이름이 필요합니다.');
     const found = input.id && this.state.agents.find((a) => a.id === input.id);
@@ -350,6 +352,8 @@ export class Store {
       agentIds, masterAgentId, pipeline,
       gitRemote: inspected.remotes.find((remote) => remote.name === 'origin')?.url || '',
       executionMode: input.executionMode === 'isolated-worktrees' ? 'isolated-worktrees' : 'shared-serial',
+      routingMode: ['manual', 'sequential'].includes(input.routingMode) ? input.routingMode : 'adaptive',
+      workflowId: String(input.workflowId || 'auto').trim() || 'auto',
       updatedAt: now(),
     };
     if (found) Object.assign(found, clean);
@@ -384,6 +388,8 @@ export class Store {
     const stamp = now();
     const mission = {
       id: id('mission'), projectId: project.id, title, prompt, pipeline,
+      routingMode: String(input.routingMode || project.routingMode || 'adaptive'),
+      workflowId: String(input.workflowId || project.workflowId || 'auto'),
       masterAgentId: project.masterAgentId || pipeline[0], status: 'running', stepIndex: 0,
       cardIds: [], currentCardId: '', finalOutput: '', error: '',
       createdAt: stamp, updatedAt: stamp, finishedAt: null,
