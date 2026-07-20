@@ -24,7 +24,7 @@ async function body(req, limit) {
   catch { throw Object.assign(new Error('올바른 JSON이 아닙니다.'), { status: 400 }); }
 }
 
-export function createServer({ store, runner, scheduler, integrations = {}, config }) {
+export function createServer({ store, runner, scheduler, orchestrator, integrations = {}, config }) {
   const clients = new Set();
   const emit = (event, data) => {
     const packet = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
@@ -49,6 +49,11 @@ export function createServer({ store, runner, scheduler, integrations = {}, conf
       if (method === 'GET' && url.pathname === '/api/usage') return send(res, 200, usageSummary(store.snapshot()));
       if (method === 'GET' && url.pathname === '/api/detect') return send(res, 200, store.snapshot().settings.detected || {});
       if (method === 'GET' && url.pathname === '/api/projects') return send(res, 200, store.listProjects());
+      if (method === 'GET' && url.pathname === '/api/missions') return send(res, 200, store.listMissions());
+      if (method === 'POST' && url.pathname === '/api/missions') {
+        if (!orchestrator) throw new Error('멀티 에이전트 오케스트레이터가 준비되지 않았습니다.');
+        return send(res, 202, await orchestrator.startMission(await body(req, config.maxBodyBytes)));
+      }
       if (method === 'POST' && url.pathname === '/api/projects') {
         const project = await store.saveProject(await body(req, config.maxBodyBytes)); emit('reload', { kind: 'projects' }); return send(res, 201, project);
       }

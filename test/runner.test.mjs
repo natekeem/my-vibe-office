@@ -44,13 +44,31 @@ test('runner queues work beyond concurrency and pumps it after completion', asyn
   const one = await store.createCard({ title: 'one', prompt: 'ONE', agentId: agent.id, workdir: dir });
   const two = await store.createCard({ title: 'two', prompt: 'TWO', agentId: agent.id, workdir: dir });
   const runner = new Runner(store, () => {});
-  await runner.enqueue(one.id);
-  const queued = await runner.enqueue(two.id);
+  const [, queued] = await Promise.all([runner.enqueue(one.id), runner.enqueue(two.id)]);
   assert.equal(queued.status, 'queued');
   const deadline = Date.now() + 4000;
   while (Date.now() < deadline && (store.getCard(two.id).status !== 'review' || runner.runningCount() !== 0)) await new Promise((resolve) => setTimeout(resolve, 30));
   assert.equal(store.getCard(one.id).status, 'review');
   assert.equal(store.getCard(two.id).status, 'review');
+  assert.match(store.getCard(two.id).output, /TWO/);
+});
+
+test('runner serializes agents that share the same repo path', async (t) => {
+  const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'agent-office-lock-'));
+  t.after(() => fs.promises.rm(dir, { recursive: true, force: true }));
+  const store = new Store(path.join(dir, 'state.json'));
+  await store.init();
+  await store.saveSettings({ concurrency: 2, defaultWorkdir: dir, adapters: { custom: { executable: process.execPath, args: ['-e', 'setTimeout(()=>console.log(process.argv[1]),120)', '{prompt}'] } } });
+  const agent = await store.saveAgent({ name: 'Safe writer', adapter: 'custom' });
+  const one = await store.createCard({ title: 'one', prompt: 'ONE', agentId: agent.id, workdir: dir });
+  const two = await store.createCard({ title: 'two', prompt: 'TWO', agentId: agent.id, workdir: dir });
+  const runner = new Runner(store, () => {});
+  const [, queued] = await Promise.all([runner.enqueue(one.id), runner.enqueue(two.id)]);
+  assert.equal(queued.status, 'queued');
+  assert.match(queued.queueReason, /같은 작업 경로/);
+  assert.equal(runner.runningCount(), 1);
+  const deadline = Date.now() + 4000;
+  while (Date.now() < deadline && (store.getCard(two.id).status !== 'review' || runner.runningCount() !== 0)) await new Promise((resolve) => setTimeout(resolve, 30));
   assert.match(store.getCard(two.id).output, /TWO/);
 });
 

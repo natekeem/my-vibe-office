@@ -60,6 +60,22 @@ test('projects persist and can be removed', async (t) => {
   assert.deepEqual(store.listProjects(), []);
 });
 
+test('repo stores assigned agents, master and handoff pipeline', async (t) => {
+  const { store, dir } = await tempStore();
+  t.after(() => fs.promises.rm(dir, { recursive: true, force: true }));
+  const pm = await store.saveAgent({ name: 'PM', adapter: 'custom' });
+  const developer = await store.saveAgent({ name: 'Developer', adapter: 'custom' });
+  const project = await store.saveProject({
+    name: 'Team repo', path: dir, agentIds: [pm.id, developer.id],
+    masterAgentId: pm.id, pipeline: [pm.id, developer.id], executionMode: 'shared-serial',
+  });
+  assert.deepEqual(project.agentIds, [pm.id, developer.id]);
+  assert.equal(project.masterAgentId, pm.id);
+  assert.deepEqual(project.pipeline, [pm.id, developer.id]);
+  await store.saveSettings({ activeProjectId: project.id });
+  assert.equal(store.snapshot().settings.activeProjectId, project.id);
+});
+
 test('one-time schedules reject an invalid execution time', async (t) => {
   const { store, dir } = await tempStore();
   t.after(() => fs.promises.rm(dir, { recursive: true, force: true }));

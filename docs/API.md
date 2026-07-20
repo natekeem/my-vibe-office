@@ -14,6 +14,8 @@
 | GET | `/api/projects` | 프로젝트 폴더 프리셋 목록 |
 | POST | `/api/projects` | 프로젝트 생성 또는 `id` 기준 수정 |
 | DELETE | `/api/projects/{id}` | 프로젝트 삭제 |
+| GET | `/api/missions` | 멀티 에이전트 미션 목록 |
+| POST | `/api/missions` | repo 파이프라인 미션 생성·첫 단계 실행 |
 | POST | `/api/pick-folder` | 데스크톱 네이티브 폴더 선택기 |
 | GET | `/api/desktop` | 자동 시작 지원·현재 상태 |
 | POST | `/api/desktop/autostart` | `{ "on": true }`로 Windows 자동 시작 변경 |
@@ -48,6 +50,7 @@
 - `log`: `{ cardId, text }` 실행 로그 조각
 - `agent`: 에이전트 변경
 - `settings`: 설정 변경
+- `mission`: 미션 단계·상태 변경
 - `reload`: 해당 목록 전체 재조회 필요
 
 ## 오류 형식

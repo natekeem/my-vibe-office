@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
+import path from 'node:path';
 
 function resolveArgs(template, values) {
   return template.map((arg) => String(arg).replaceAll('{prompt}', values.prompt).replaceAll('{workdir}', values.workdir).replaceAll('{model}', values.model).replaceAll('{sessionId}', values.sessionId || ''));
@@ -10,19 +11,41 @@ export class Runner {
     this.store = store;
     this.emit = emit;
     this.processes = new Map();
+    this.reservations = new Set();
     this.queue = [];
     this.buffers = new Map();
     this.shuttingDown = false;
+    this.onComplete = async () => {};
   }
 
-  runningCount() { return this.processes.size; }
+  runningCount() { return new Set([...this.processes.keys(), ...this.reservations]).size; }
+
+  resourceKey(card) {
+    const settings = this.store.snapshot().settings;
+    return path.resolve(card?.workdir || settings.defaultWorkdir || process.cwd()).toLowerCase();
+  }
+
+  conflictReason(cardId) {
+    const card = this.store.getCard(cardId);
+    if (!card) return '';
+    const key = this.resourceKey(card);
+    for (const runningId of new Set([...this.processes.keys(), ...this.reservations])) {
+      if (runningId !== cardId && this.resourceKey(this.store.getCard(runningId)) === key) {
+        return '같은 작업 경로에서 다른 에이전트가 실행 중이라 안전하게 대기합니다.';
+      }
+    }
+    return '';
+  }
 
   async enqueue(cardId) {
     if (this.processes.has(cardId) || this.queue.includes(cardId)) throw new Error('이미 실행 또는 대기 중인 작업입니다.');
     const settings = this.store.snapshot().settings;
-    if (this.runningCount() >= settings.concurrency) {
+    const queueReason = this.runningCount() >= settings.concurrency
+      ? `동시 실행 한도(${settings.concurrency})에 도달해 대기합니다.`
+      : this.conflictReason(cardId);
+    if (queueReason) {
       this.queue.push(cardId);
-      const card = await this.store.updateCard(cardId, { status: 'queued', error: '' });
+      const card = await this.store.updateCard(cardId, { status: 'queued', queueReason, error: '' });
       this.emit('card', card);
       return card;
     }
@@ -36,6 +59,8 @@ export class Runner {
     if (!card || !agent) throw new Error('작업 또는 에이전트를 찾을 수 없습니다.');
     const settings = this.store.snapshot().settings;
     if (this.runningCount() >= settings.concurrency) throw new Error(`동시 실행 한도(${settings.concurrency})에 도달했습니다.`);
+    const conflict = this.conflictReason(cardId);
+    if (conflict) throw new Error(conflict);
     const adapter = settings.adapters[agent.adapter];
     if (!adapter?.executable) throw new Error(`${agent.adapter} 실행 파일이 설정되지 않았습니다.`);
     const workdir = card.workdir || settings.defaultWorkdir || process.cwd();
@@ -46,7 +71,9 @@ export class Runner {
     if (isResume) prompt = card.pendingFollowup;
     else if (followups) prompt += `\n\n--- 후속 지시 ---\n${followups}`;
     const args = resolveArgs(isResume ? adapter.resumeArgs : adapter.args, { prompt, workdir, model: agent.model || '', sessionId: card.sessionId });
-    await this.store.prepareRun(cardId);
+    this.reservations.add(cardId);
+    try { await this.store.prepareRun(cardId); }
+    catch (error) { this.reservations.delete(cardId); throw error; }
     if (isResume) await this.store.updateCard(cardId, { pendingFollowup: null });
     this.emit('card', this.store.getCard(cardId));
 
@@ -54,10 +81,12 @@ export class Runner {
     try {
       child = spawn(adapter.executable, args, { cwd: workdir, windowsHide: true, shell: false, env: { ...process.env, FORCE_COLOR: '0', NO_COLOR: '1' } });
     } catch (error) {
+      this.reservations.delete(cardId);
       await this.fail(cardId, error.message);
       throw error;
     }
     this.processes.set(cardId, child);
+    this.reservations.delete(cardId);
     child.stdin?.end();
     this.buffers.set(cardId, '');
     await this.store.updateCard(cardId, { pid: child.pid || null });
@@ -79,7 +108,11 @@ export class Runner {
         error: stopped ? `프로세스 종료: ${signal || `exit ${code}`}` : '',
       });
       this.processes.delete(cardId);
-      this.emit('card', this.store.getCard(cardId));
+      const finalCard = this.store.getCard(cardId);
+      this.emit('card', finalCard);
+      await this.onComplete(finalCard).catch(async (error) => {
+        await this.store.appendEvent(cardId, { type: 'orchestrator.error', message: error.message });
+      });
       await this.pump();
     });
     return this.store.getCard(cardId);
@@ -87,9 +120,14 @@ export class Runner {
 
   async fail(cardId, message) {
     this.processes.delete(cardId);
+    this.reservations.delete(cardId);
     this.buffers.delete(cardId);
     await this.store.updateCard(cardId, { status: 'review', error: message, pid: null, finishedAt: new Date().toISOString() });
-    this.emit('card', this.store.getCard(cardId));
+    const finalCard = this.store.getCard(cardId);
+    this.emit('card', finalCard);
+    await this.onComplete(finalCard).catch(async (error) => {
+      await this.store.appendEvent(cardId, { type: 'orchestrator.error', message: error.message });
+    });
     await this.pump();
   }
 
@@ -148,7 +186,9 @@ export class Runner {
     if (this.shuttingDown) return;
     const limit = this.store.snapshot().settings.concurrency;
     while (this.queue.length && this.runningCount() < limit) {
-      const next = this.queue.shift();
+      const index = this.queue.findIndex((cardId) => !this.conflictReason(cardId));
+      if (index < 0) break;
+      const [next] = this.queue.splice(index, 1);
       await this.run(next).catch(async (error) => this.fail(next, error.message));
     }
   }
@@ -161,6 +201,7 @@ export class Runner {
       this.queue.splice(index, 1);
       const card = await this.store.updateCard(cardId, { status: 'review', error: '대기 중인 작업을 취소했습니다.', finishedAt: new Date().toISOString() });
       this.emit('card', card);
+      await this.onComplete(card).catch(() => {});
       return card;
     }
     this.processes.delete(cardId);
@@ -168,7 +209,9 @@ export class Runner {
       spawn('taskkill', ['/pid', String(child.pid), '/t', '/f'], { windowsHide: true });
     } else child.kill('SIGTERM');
     await this.store.updateCard(cardId, { status: 'review', error: '사용자가 작업을 중지했습니다.', pid: null, finishedAt: new Date().toISOString() });
-    this.emit('card', this.store.getCard(cardId));
+    const stoppedCard = this.store.getCard(cardId);
+    this.emit('card', stoppedCard);
+    await this.onComplete(stoppedCard).catch(() => {});
     await this.pump();
     return this.store.getCard(cardId);
   }

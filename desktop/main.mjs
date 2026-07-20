@@ -6,6 +6,7 @@ import { createServer } from '../src/server.mjs';
 import { config as baseConfig } from '../src/config.mjs';
 import { detectCliAdapters } from '../src/detect.mjs';
 import { Scheduler } from '../src/scheduler.mjs';
+import { Orchestrator } from '../src/orchestrator.mjs';
 
 let server;
 let runner;
@@ -38,6 +39,8 @@ async function boot() {
   await store.init();
   await store.applyDetectedAdapters(detectCliAdapters());
   runner = new Runner(store, () => {});
+  const orchestrator = new Orchestrator(store, runner);
+  runner.onComplete = (card) => orchestrator.handleCardComplete(card);
   scheduler = new Scheduler(store, runner);
   const integrations = {
     pickFolder: async () => {
@@ -55,7 +58,8 @@ async function boot() {
       return { supported: true, autostart: app.getLoginItemSettings().openAtLogin };
     },
   };
-  const created = createServer({ store, runner, scheduler, integrations, config });
+  const created = createServer({ store, runner, scheduler, orchestrator, integrations, config });
+  orchestrator.emit = created.emit;
   server = created.server;
   const streamEmit = runner.emit;
   runner.emit = (event, data) => {

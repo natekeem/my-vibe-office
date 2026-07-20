@@ -1,0 +1,31 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { Store } from '../src/store.mjs';
+import { Orchestrator } from '../src/orchestrator.mjs';
+
+test('master mission hands successful output to the next agent', async (t) => {
+  const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'agent-office-mission-'));
+  t.after(() => fs.promises.rm(dir, { recursive: true, force: true }));
+  const store = new Store(path.join(dir, 'state.json'));
+  await store.init();
+  const pm = await store.saveAgent({ name: 'PM', role: 'planner', adapter: 'custom' });
+  const developer = await store.saveAgent({ name: 'Developer', role: 'implementation', adapter: 'custom' });
+  const project = await store.saveProject({ name: 'Mission repo', path: dir, agentIds: [pm.id, developer.id], masterAgentId: pm.id, pipeline: [pm.id, developer.id] });
+  const enqueued = [];
+  const runner = { enqueue: async (cardId) => enqueued.push(cardId) };
+  const orchestrator = new Orchestrator(store, runner);
+  const mission = await orchestrator.startMission({ projectId: project.id, title: 'Ship feature', prompt: 'Build and verify it' });
+  const first = store.getCard(mission.currentCardId);
+  assert.equal(first.agentId, pm.id);
+  await store.updateCard(first.id, { status: 'review', output: 'Plan complete', exitCode: 0, finishedAt: new Date().toISOString() });
+  await orchestrator.handleCardComplete(store.getCard(first.id));
+  const updated = store.getMission(mission.id);
+  const second = store.getCard(updated.currentCardId);
+  assert.equal(store.getCard(first.id).status, 'done');
+  assert.equal(second.agentId, developer.id);
+  assert.match(second.prompt, /Plan complete/);
+  assert.deepEqual(enqueued, [first.id, second.id]);
+});

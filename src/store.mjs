@@ -29,6 +29,7 @@ export const DEFAULT_STATE = Object.freeze({
     concurrency: 2,
     defaultWorkdir: '',
     projects: [],
+    activeProjectId: '',
     adapters: {
       codex: {
         label: 'Codex', executable: 'codex',
@@ -42,6 +43,7 @@ export const DEFAULT_STATE = Object.freeze({
   agents: [],
   cards: [],
   schedules: [],
+  missions: [],
 });
 
 function clone(value) {
@@ -83,6 +85,13 @@ export class Store {
         card.error = '앱이 종료되어 실행 상태를 복구했습니다.';
         card.finishedAt = now();
         card.updatedAt = now();
+      }
+    }
+    for (const mission of this.state.missions || []) {
+      if (mission.status === 'running') {
+        mission.status = 'review';
+        mission.error = '앱이 종료되어 멀티 에이전트 미션을 검토 상태로 복구했습니다.';
+        mission.updatedAt = now();
       }
     }
   }
@@ -129,6 +138,12 @@ export class Store {
     }
     const before = this.state.agents.length;
     this.state.agents = this.state.agents.filter((a) => a.id !== agentId);
+    for (const project of this.state.settings.projects || []) {
+      project.agentIds = (project.agentIds || []).filter((id) => id !== agentId);
+      project.pipeline = (project.pipeline || []).filter((id) => id !== agentId);
+      if (project.masterAgentId === agentId) project.masterAgentId = project.pipeline[0] || project.agentIds[0] || '';
+      project.updatedAt = now();
+    }
     await this.persist();
     return before !== this.state.agents.length;
   }
@@ -144,7 +159,9 @@ export class Store {
     const stamp = now();
     const card = {
       id: id('card'), title, prompt, agentId: input.agentId,
-      workdir: String(input.workdir || '').trim(), status: 'todo',
+      workdir: String(input.workdir || '').trim(), projectId: String(input.projectId || '').trim(),
+      missionId: String(input.missionId || '').trim(), missionStep: Number.isFinite(Number(input.missionStep)) ? Number(input.missionStep) : null,
+      parentCardId: String(input.parentCardId || '').trim(), status: 'todo', queueReason: '',
       output: '', error: '', exitCode: null, pid: null, events: [], runs: [], followups: [], sessionId: null, pendingFollowup: null,
       createdAt: stamp, updatedAt: stamp, startedAt: null, finishedAt: null,
     };
@@ -156,7 +173,7 @@ export class Store {
   async updateCard(cardId, patch) {
     const card = this.state.cards.find((c) => c.id === cardId);
     if (!card) throw new Error('작업을 찾을 수 없습니다.');
-    const allowed = ['status', 'output', 'error', 'exitCode', 'pid', 'startedAt', 'finishedAt', 'title', 'prompt', 'workdir', 'events', 'runs', 'followups', 'durationMs', 'sessionId', 'pendingFollowup'];
+    const allowed = ['status', 'output', 'error', 'exitCode', 'pid', 'startedAt', 'finishedAt', 'title', 'prompt', 'workdir', 'projectId', 'missionId', 'missionStep', 'parentCardId', 'queueReason', 'events', 'runs', 'followups', 'durationMs', 'sessionId', 'pendingFollowup'];
     for (const key of allowed) if (Object.hasOwn(patch, key)) card[key] = patch[key];
     card.updatedAt = now();
     await this.persist();
@@ -194,7 +211,7 @@ export class Store {
       });
       if (card.runs.length > 20) card.runs = card.runs.slice(-20);
     }
-    Object.assign(card, { status: 'running', output: '', events: [], error: '', exitCode: null, pid: null, startedAt: now(), finishedAt: null, durationMs: null, updatedAt: now() });
+    Object.assign(card, { status: 'running', queueReason: '', output: '', events: [], error: '', exitCode: null, pid: null, startedAt: now(), finishedAt: null, durationMs: null, updatedAt: now() });
     await this.persist();
     return clone(card);
   }
@@ -234,7 +251,9 @@ export class Store {
   }
 
   async saveSettings(input) {
-    const concurrency = Math.max(1, Math.min(8, Number(input.concurrency || 2)));
+    const concurrency = Object.hasOwn(input, 'concurrency')
+      ? Math.max(1, Math.min(8, Number(input.concurrency || 2)))
+      : this.state.settings.concurrency;
     const adapters = clone(this.state.settings.adapters);
     for (const key of Object.keys(adapters)) {
       const next = input.adapters?.[key];
@@ -246,12 +265,18 @@ export class Store {
         resumeArgs: Array.isArray(next.resumeArgs) ? next.resumeArgs.map(String) : adapters[key].resumeArgs,
       };
     }
-    this.state.settings = { ...this.state.settings, concurrency, defaultWorkdir: String(input.defaultWorkdir || '').trim(), adapters };
+    const defaultWorkdir = Object.hasOwn(input, 'defaultWorkdir') ? String(input.defaultWorkdir || '').trim() : this.state.settings.defaultWorkdir;
+    const projectIds = new Set((this.state.settings.projects || []).map((project) => project.id));
+    const activeProjectId = Object.hasOwn(input, 'activeProjectId')
+      ? (projectIds.has(input.activeProjectId) ? input.activeProjectId : '')
+      : (this.state.settings.activeProjectId || '');
+    this.state.settings = { ...this.state.settings, concurrency, defaultWorkdir, activeProjectId, adapters };
     await this.persist();
     return clone(this.state.settings);
   }
 
   listProjects() { return clone(this.state.settings.projects || []); }
+  getProject(projectId) { return clone((this.state.settings.projects || []).find((project) => project.id === projectId) || null); }
 
   async saveProject(input) {
     const name = String(input.name || '').trim();
@@ -261,7 +286,20 @@ export class Store {
     catch { throw new Error(`프로젝트 폴더를 찾을 수 없습니다: ${projectPath}`); }
     this.state.settings.projects ||= [];
     const found = input.id && this.state.settings.projects.find((p) => p.id === input.id);
-    const clean = { name, path: projectPath, description: String(input.description || '').trim(), updatedAt: now() };
+    const validAgents = new Set(this.state.agents.map((agent) => agent.id));
+    const agentIds = [...new Set((Array.isArray(input.agentIds) ? input.agentIds : []).filter((agentId) => validAgents.has(agentId)))];
+    const masterAgentId = validAgents.has(input.masterAgentId) ? input.masterAgentId : '';
+    if (masterAgentId && !agentIds.includes(masterAgentId)) agentIds.unshift(masterAgentId);
+    const requestedPipeline = Array.isArray(input.pipeline) ? input.pipeline : [];
+    const pipeline = [...new Set(requestedPipeline.filter((agentId) => agentIds.includes(agentId)))];
+    if (masterAgentId && !pipeline.includes(masterAgentId)) pipeline.unshift(masterAgentId);
+    for (const agentId of agentIds) if (!pipeline.includes(agentId)) pipeline.push(agentId);
+    const clean = {
+      name, path: projectPath, description: String(input.description || '').trim(),
+      agentIds, masterAgentId, pipeline,
+      executionMode: input.executionMode === 'isolated-worktrees' ? 'isolated-worktrees' : 'shared-serial',
+      updatedAt: now(),
+    };
     if (found) Object.assign(found, clean);
     else this.state.settings.projects.push({ id: id('project'), ...clean, createdAt: now() });
     await this.persist();
@@ -271,8 +309,45 @@ export class Store {
   async removeProject(projectId) {
     const before = (this.state.settings.projects || []).length;
     this.state.settings.projects = (this.state.settings.projects || []).filter((p) => p.id !== projectId);
+    if (this.state.settings.activeProjectId === projectId) this.state.settings.activeProjectId = '';
     await this.persist();
     return before !== this.state.settings.projects.length;
+  }
+
+  listMissions() { return clone(this.state.missions || []).sort((a, b) => b.createdAt.localeCompare(a.createdAt)); }
+  getMission(missionId) { return clone((this.state.missions || []).find((mission) => mission.id === missionId) || null); }
+
+  async createMission(input) {
+    const project = this.getProject(input.projectId);
+    if (!project) throw new Error('미션을 실행할 repo를 선택하세요.');
+    const assignedAgents = project.agentIds || [];
+    const pipeline = (Array.isArray(input.pipeline) && input.pipeline.length ? input.pipeline : project.pipeline || [])
+      .filter((agentId) => assignedAgents.includes(agentId) && this.state.agents.some((agent) => agent.id === agentId));
+    if (!pipeline.length) throw new Error('repo에 마스터 또는 파이프라인 에이전트를 배치하세요.');
+    const title = String(input.title || '').trim();
+    const prompt = String(input.prompt || '').trim();
+    if (!title || !prompt) throw new Error('미션 제목과 작업 지시가 필요합니다.');
+    const stamp = now();
+    const mission = {
+      id: id('mission'), projectId: project.id, title, prompt, pipeline,
+      masterAgentId: project.masterAgentId || pipeline[0], status: 'running', stepIndex: 0,
+      cardIds: [], currentCardId: '', finalOutput: '', error: '',
+      createdAt: stamp, updatedAt: stamp, finishedAt: null,
+    };
+    this.state.missions ||= [];
+    this.state.missions.push(mission);
+    await this.persist();
+    return clone(mission);
+  }
+
+  async updateMission(missionId, patch) {
+    const mission = (this.state.missions || []).find((item) => item.id === missionId);
+    if (!mission) throw new Error('멀티 에이전트 미션을 찾을 수 없습니다.');
+    const allowed = ['status', 'stepIndex', 'cardIds', 'currentCardId', 'finalOutput', 'error', 'finishedAt'];
+    for (const key of allowed) if (Object.hasOwn(patch, key)) mission[key] = patch[key];
+    mission.updatedAt = now();
+    await this.persist();
+    return clone(mission);
   }
 
   listSchedules() { return clone(this.state.schedules || []); }

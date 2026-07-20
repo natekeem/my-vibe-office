@@ -5,13 +5,17 @@ import { Runner } from './runner.mjs';
 import { createServer } from './server.mjs';
 import { detectCliAdapters } from './detect.mjs';
 import { Scheduler } from './scheduler.mjs';
+import { Orchestrator } from './orchestrator.mjs';
 
 const store = new Store(config.dataFile);
 await store.init();
 await store.applyDetectedAdapters(detectCliAdapters());
 const runner = new Runner(store, () => {});
+const orchestrator = new Orchestrator(store, runner);
+runner.onComplete = (card) => orchestrator.handleCardComplete(card);
 const scheduler = new Scheduler(store, runner);
-const { server, emit } = createServer({ store, runner, scheduler, config });
+const { server, emit } = createServer({ store, runner, scheduler, orchestrator, config });
+orchestrator.emit = emit;
 scheduler.emit = emit;
 scheduler.start();
 
