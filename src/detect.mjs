@@ -32,12 +32,18 @@ export function detectCliAdapters() {
     executableOnPath('codex'),
   ].filter(Boolean);
   const claudeCandidates = [executableOnPath('claude')].filter(Boolean);
+  const opencodeCandidates = [
+    executableOnPath('opencode'),
+    path.join(os.homedir(), '.opencode', 'bin', process.platform === 'win32' ? 'opencode.exe' : 'opencode'),
+    path.join(local, 'Programs', 'opencode', 'opencode.exe'),
+  ].filter(Boolean);
   const usable = (items) => items.find((file) => {
     try { return fs.statSync(file).isFile(); } catch { return false; }
   }) || '';
   return {
     codex: usable(codexCandidates),
     claude: usable(claudeCandidates),
+    opencode: usable(opencodeCandidates),
     checkedAt: new Date().toISOString(),
   };
 }

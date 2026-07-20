@@ -37,6 +37,7 @@ export const DEFAULT_STATE = Object.freeze({
         resumeArgs: ['exec', 'resume', '--json', '--skip-git-repo-check', '{sessionId}', '{prompt}'],
       },
       claude: { label: 'Claude Code', executable: 'claude', args: ['-p', '{prompt}'] },
+      opencode: { label: 'OpenCode', executable: 'opencode', args: ['run', '--format', 'json', '{prompt}'] },
       custom: { label: '사용자 지정', executable: '', args: ['{prompt}'] },
     },
   },
@@ -64,7 +65,10 @@ export class Store {
       this.state = {
         ...clone(DEFAULT_STATE),
         ...parsed,
-        settings: { ...clone(DEFAULT_STATE.settings), ...(parsed.settings || {}) },
+        settings: {
+          ...clone(DEFAULT_STATE.settings), ...(parsed.settings || {}),
+          adapters: { ...clone(DEFAULT_STATE.settings.adapters), ...(parsed.settings?.adapters || {}) },
+        },
       };
     } catch (error) {
       if (error.code !== 'ENOENT') {
@@ -118,7 +122,7 @@ export class Store {
     const clean = {
       name: String(input.name || '').trim(),
       role: String(input.role || '').trim(),
-      adapter: ['codex', 'claude', 'custom'].includes(input.adapter) ? input.adapter : 'codex',
+      adapter: ['codex', 'claude', 'opencode', 'custom'].includes(input.adapter) ? input.adapter : 'codex',
       model: String(input.model || '').trim(),
       color: /^#[0-9a-f]{6}$/i.test(input.color || '') ? input.color : '#7c6ff7',
       systemPrompt: String(input.systemPrompt || '').trim(),
@@ -173,7 +177,7 @@ export class Store {
   async updateCard(cardId, patch) {
     const card = this.state.cards.find((c) => c.id === cardId);
     if (!card) throw new Error('작업을 찾을 수 없습니다.');
-    const allowed = ['status', 'output', 'error', 'exitCode', 'pid', 'startedAt', 'finishedAt', 'title', 'prompt', 'workdir', 'projectId', 'missionId', 'missionStep', 'parentCardId', 'queueReason', 'events', 'runs', 'followups', 'durationMs', 'sessionId', 'pendingFollowup'];
+    const allowed = ['status', 'output', 'error', 'exitCode', 'pid', 'startedAt', 'finishedAt', 'title', 'prompt', 'workdir', 'projectId', 'missionId', 'missionStep', 'parentCardId', 'queueReason', 'events', 'runs', 'followups', 'durationMs', 'sessionId', 'pendingFollowup', 'githubIssue'];
     for (const key of allowed) if (Object.hasOwn(patch, key)) card[key] = patch[key];
     card.updatedAt = now();
     await this.persist();
@@ -396,7 +400,7 @@ export class Store {
 
   async applyDetectedAdapters(detected) {
     let changed = false;
-    for (const key of ['codex', 'claude']) {
+    for (const key of ['codex', 'claude', 'opencode']) {
       const current = this.state.settings.adapters[key];
       const found = detected[key];
       if (!found || !current) continue;

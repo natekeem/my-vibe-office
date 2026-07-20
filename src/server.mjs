@@ -2,6 +2,8 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { presets } from './presets.mjs';
+import { inspectCapabilities } from './capabilities.mjs';
+import { createGithubIssue, getGithubIssue, inspectGithub, setGithubIssueState } from './github.mjs';
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml' };
 
@@ -49,6 +51,47 @@ export function createServer({ store, runner, scheduler, orchestrator, integrati
       if (method === 'GET' && url.pathname === '/api/usage') return send(res, 200, usageSummary(store.snapshot()));
       if (method === 'GET' && url.pathname === '/api/detect') return send(res, 200, store.snapshot().settings.detected || {});
       if (method === 'GET' && url.pathname === '/api/projects') return send(res, 200, store.listProjects());
+      if (method === 'GET' && url.pathname === '/api/capabilities') {
+        const project = store.getProject(url.searchParams.get('projectId'));
+        return send(res, 200, inspectCapabilities({ projectPath: project?.path || store.snapshot().settings.defaultWorkdir, detected: store.snapshot().settings.detected || {} }));
+      }
+      if (method === 'GET' && url.pathname === '/api/github') {
+        const project = store.getProject(url.searchParams.get('projectId'));
+        if (!project) return send(res, 404, { error: 'GitHub 현황을 확인할 repo를 선택하세요.' });
+        return send(res, 200, await inspectGithub(project.path));
+      }
+      if (method === 'POST' && url.pathname === '/api/github/issues') {
+        const input = await body(req, config.maxBodyBytes);
+        const project = store.getProject(input.projectId);
+        if (!project) throw new Error('GitHub Issue를 만들 repo를 선택하세요.');
+        const issue = await createGithubIssue(project.path, { title: input.title, body: input.body });
+        if (input.cardId) await store.updateCard(input.cardId, { githubIssue: issue });
+        emit('reload', { kind: 'github' });
+        return send(res, 201, issue);
+      }
+      if (method === 'POST' && url.pathname === '/api/github/import') {
+        const input = await body(req, config.maxBodyBytes);
+        const project = store.getProject(input.projectId);
+        if (!project) throw new Error('GitHub Issue를 가져올 repo를 선택하세요.');
+        const issue = await getGithubIssue(project.path, input.issueNumber);
+        const agentId = input.agentId || project.masterAgentId || project.agentIds?.[0];
+        const prompt = [`GitHub Issue #${issue.number}: ${issue.title}`, issue.body || '본문 없음', `원문: ${issue.url}`, '완료 후 변경·검증 결과를 정리하고 Issue 상태 갱신 여부를 사용자에게 보고하세요.'].join('\n\n');
+        const card = await store.createCard({ title: `#${issue.number} ${issue.title}`, prompt, agentId, workdir: project.path, projectId: project.id });
+        const linked = await store.updateCard(card.id, { githubIssue: { number: issue.number, title: issue.title, url: issue.url, state: issue.state, repo: issue.url.split('/issues/')[0].replace('https://github.com/', '') } });
+        emit('card', linked);
+        return send(res, 201, linked);
+      }
+      if (method === 'POST' && url.pathname === '/api/github/issues/state') {
+        const input = await body(req, config.maxBodyBytes);
+        const project = store.getProject(input.projectId);
+        if (!project) throw new Error('GitHub Issue 상태를 변경할 repo를 선택하세요.');
+        const issue = await setGithubIssueState(project.path, input.issueNumber, input.state);
+        for (const card of store.listCards().filter((item) => item.projectId === project.id && item.githubIssue?.number === issue.number)) {
+          await store.updateCard(card.id, { githubIssue: { ...card.githubIssue, state: issue.state, title: issue.title, url: issue.url } });
+        }
+        emit('reload', { kind: 'github' });
+        return send(res, 200, issue);
+      }
       if (method === 'GET' && url.pathname === '/api/missions') return send(res, 200, store.listMissions());
       if (method === 'POST' && url.pathname === '/api/missions') {
         if (!orchestrator) throw new Error('멀티 에이전트 오케스트레이터가 준비되지 않았습니다.');

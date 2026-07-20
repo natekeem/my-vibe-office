@@ -97,3 +97,21 @@ test('Codex follow-up resumes the captured session', async (t) => {
   assert.match(store.getCard(card.id).output, new RegExp(`${fakeSession}\\|FOLLOW_UP`));
   assert.equal(store.getCard(card.id).pendingFollowup, null);
 });
+
+test('runner records Claude-style subagent hiring events', async (t) => {
+  const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'agent-office-subagent-'));
+  t.after(() => fs.promises.rm(dir, { recursive: true, force: true }));
+  const store = new Store(path.join(dir, 'state.json'));
+  await store.init();
+  const event = { type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Agent', input: { subagent_type: 'frontend-helper', description: 'UI implementation' } }] } };
+  await store.saveSettings({ concurrency: 1, defaultWorkdir: dir, adapters: { custom: { executable: process.execPath, args: ['-e', `console.log(${JSON.stringify(JSON.stringify(event))})`] } } });
+  const agent = await store.saveAgent({ name: 'FE developer', adapter: 'custom' });
+  const card = await store.createCard({ title: 'Hire helper', prompt: 'work', agentId: agent.id, workdir: dir });
+  const runner = new Runner(store, () => {});
+  await runner.run(card.id);
+  const deadline = Date.now() + 3000;
+  while (Date.now() < deadline && store.getCard(card.id).status !== 'review') await new Promise((resolve) => setTimeout(resolve, 20));
+  const finished = store.getCard(card.id);
+  assert.match(finished.output, /ITO 고용.*frontend-helper/);
+  assert.ok(finished.events.some((item) => item.type === 'subagent.started' && item.name === 'frontend-helper'));
+});

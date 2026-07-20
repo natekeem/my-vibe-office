@@ -68,19 +68,30 @@
 - [x] 미션 상태 영속화와 비정상 종료 복구
 - [x] portable Windows 앱 갱신
 
-## v0.7 추천
+## v0.7 완료
 
-- 사용자 브랜드 아이콘과 코드 서명
-- Claude stream-json 세부 이벤트 파서
-- 일정 실패 재시도·백오프 정책
-- 장기 로그 회전과 카드별 내보내기
+- [x] repo 선택기를 왼쪽 사이드바 최상단으로 이동
+- [x] OpenCode 자동 감지·실행 어댑터·에이전트 설정
+- [x] Codex·Claude·OpenCode MCP·Skills·Rules·Plugins 적용 현황
+- [x] global/project 구성 범위와 출처 표시, 비밀값 비노출
+- [x] Claude/OpenCode subagent ITO 인력풀 시각화
+- [x] Agent/Task 호출 이벤트의 최근 실제 투입 표시
+- [x] GitHub Issues 생성·작업 가져오기·상태 동기화
+- [x] GitHub Projects v2 읽기 전용 목록과 권한 안내
+- [x] portable Windows 앱 갱신
+
+## v0.8 후보
+
+- GitHub Projects Status와 로컬 칸반 양방향 동기화
+- Pull Request·리뷰·CI 완료 게이트
+- Claude/OpenCode 버전별 stream-json 파서와 토큰 통계
+- 실제 subagent 부모·자식 실행 트리와 비용 추적
 - Git worktree·에이전트 브랜치 자동 생성과 정리
 - 파일 소유권·변경 경로 중복 검사와 마스터 통합 게이트
 - 병렬 분기·합류가 가능한 카드 의존성 DAG
-- MCP/커넥터 상태 확인. 비밀키는 Windows Credential Manager 사용
-- 다중 사용자 공유가 필요할 경우 별도 인증 계층 추가
-- 캐릭터 외형 선택과 가구·방 테마 커스터마이징
-- 에이전트 이동 경로, 출근·완료·실패 연출 고도화
+- 일정 실패 재시도·백오프, 장기 로그 회전
+- 사용자 브랜드 아이콘과 코드 서명
+- 캐릭터 외형·가구·방 테마 커스터마이징
 
 ## 원본과 대조할 추가 연구
 

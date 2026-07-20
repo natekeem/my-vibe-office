@@ -15,11 +15,14 @@ Codex, Claude Code 같은 로컬 CLI 에이전트에게 일을 배정하고 상�
 - 기능 구현·진단·검토·리서치·문서화 작업 지시 템플릿
 - 상세 작업 생성 후 즉시 실행 옵션
 - 프로젝트 폴더 프리셋과 네이티브 폴더 선택기
-- Office 상단 repo 선택기와 repo별 전담 에이전트·마스터·인계 순서 설정
+- 왼쪽 사이드바 최상단 repo 선택기와 repo별 전담 에이전트·마스터·인계 순서 설정
 - 마스터 목표를 PM → 개발 → 디자인 → QA처럼 순차 인계하는 멀티 에이전트 미션
 - 같은 작업 경로의 동시 쓰기를 막는 repo 경로 잠금과 대기 사유 표시
-- 여러 CLI 어댑터와 사용자 지정 명령 템플릿
-- 설치된 Codex/Claude CLI 자동 감지
+- Codex·Claude Code·OpenCode 어댑터와 사용자 지정 명령 템플릿
+- 설치된 Codex·Claude Code·OpenCode CLI 자동 감지
+- CLI별 MCP·Skills·Rules·Plugins·Subagents 적용 현황 인벤토리
+- Claude/OpenCode 서브에이전트 인력풀과 실제 호출을 보여주는 ITO 시각화
+- GitHub Issues 생성·가져오기·상태 동기화와 Projects v2 조회
 - 동시 실행 대기열과 자동 순차 실행
 - 실행 중 stdout/stderr 실시간 스트리밍(SSE)
 - Codex JSONL 구조화 로그, repo·에이전트·실행별 입력/출력 토큰과 실행시간 통계
@@ -44,7 +47,7 @@ cd 'C:\Users\samsung\OneDrive\문서\workpets-local'
 
 또는 `npm start`를 실행합니다. 기본 주소는 `http://127.0.0.1:4317`입니다.
 
-개발용 데스크톱 창은 의존성을 설치한 뒤 `npm run desktop`으로 실행합니다. 패키징된 버전은 `release/Local-Agent-Office-0.6.0.exe`입니다. 이 실행 파일은 설치 없이 실행되는 portable 앱이며 상태는 Windows 사용자 앱 데이터 폴더에 저장합니다. 창을 닫으면 트레이로 숨고 트레이 메뉴에서 완전히 종료할 수 있습니다.
+개발용 데스크톱 창은 의존성을 설치한 뒤 `npm run desktop`으로 실행합니다. 패키징된 버전은 `release/Local-Agent-Office-0.7.0.exe`입니다. 이 실행 파일은 설치 없이 실행되는 portable 앱이며 상태는 Windows 사용자 앱 데이터 폴더에 저장합니다. 창을 닫으면 트레이로 숨고 트레이 메뉴에서 완전히 종료할 수 있습니다.
 
 새 portable 파일을 만들려면 `npm run dist`를 실행합니다. 빌드는 OneDrive 파일 잠금을 피하기 위해 `%LOCALAPPDATA%\Temp`에서 수행되고 완성본만 `release/`로 복사됩니다.
 
@@ -67,7 +70,7 @@ args: exec, --json, {prompt}
 
 각 작업의 **상세 지시**에는 이번 작업의 목표, 범위, 제약, 완료 조건을 넣습니다. 매번 기본 역할을 반복할 필요는 없습니다. 처음에는 에이전트 화면의 역할 프리셋과 새 작업 화면의 템플릿을 선택한 뒤 필요한 부분만 바꾸면 됩니다.
 
-프로젝트 화면에서 Git repo와 투입 에이전트, 마스터, 자동 인계 순서를 정합니다. Office 상단에서 repo를 바꾸면 캔버스·작업 선반·통계가 해당 repo 기준으로 전환됩니다. 같은 repo 경로는 기본적으로 한 에이전트만 쓰도록 직렬화되며, 실제 병렬 실행은 에이전트별 Git worktree를 별도 경로로 준비하는 방식을 권장합니다.
+프로젝트 화면에서 Git repo와 투입 에이전트, 마스터, 자동 인계 순서를 정합니다. 왼쪽 사이드바 최상단에서 repo를 바꾸면 캔버스·작업 선반·통계가 해당 repo 기준으로 전환됩니다. 같은 repo 경로는 기본적으로 한 에이전트만 쓰도록 직렬화되며, 실제 병렬 실행은 에이전트별 Git worktree를 별도 경로로 준비하는 방식을 권장합니다.
 
 ## 문서
 
@@ -76,7 +79,7 @@ args: exec, --json, {prompt}
 - [로컬 API](docs/API.md)
 - [개발 로드맵](docs/ROADMAP.md)
 - [QA 결과](docs/QA_REPORT.md)
-- [v0.6 기능 감사](docs/FEATURE_AUDIT.md)
+- [v0.7 기능 감사](docs/FEATURE_AUDIT.md)
 
 ## 주의
 

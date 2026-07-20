@@ -161,6 +161,24 @@ export class Runner {
     let event;
     try { event = JSON.parse(line); } catch { return `${line}\n`; }
     await this.store.appendEvent(cardId, { type: event.type || 'json', data: event });
+    const content = Array.isArray(event.message?.content) ? event.message.content : Array.isArray(event.content) ? event.content : [];
+    let structuredText = '';
+    for (const part of content) {
+      if (part?.type === 'text' && part.text) structuredText += `${part.text}\n`;
+      const toolName = String(part?.name || part?.tool || '');
+      if (part?.type === 'tool_use' && /^(?:Agent|Task)$/i.test(toolName)) {
+        const worker = part.input?.subagent_type || part.input?.agent_type || part.input?.name || 'subagent';
+        await this.store.appendEvent(cardId, { type: 'subagent.started', name: worker, tool: toolName, description: part.input?.description || part.input?.prompt || '' });
+        structuredText += `\n[ITO 고용] ${worker}${part.input?.description ? ` · ${part.input.description}` : ''}\n`;
+      }
+    }
+    if (structuredText) return structuredText;
+    if (event.type === 'text' && event.part?.text) return `${event.part.text}\n`;
+    if (event.type === 'tool_use' && /(?:agent|task)/i.test(String(event.part?.tool || event.tool || ''))) {
+      const worker = event.part?.state?.input?.subagent_type || event.part?.state?.input?.agent || event.agent || 'subagent';
+      await this.store.appendEvent(cardId, { type: 'subagent.started', name: worker, tool: event.part?.tool || event.tool || 'task' });
+      return `\n[ITO 고용] ${worker}\n`;
+    }
     if (event.type === 'thread.started') {
       if (event.thread_id) await this.store.updateCard(cardId, { sessionId: event.thread_id });
       return `세션 시작 · ${event.thread_id || ''}\n`;

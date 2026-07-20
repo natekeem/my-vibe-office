@@ -33,6 +33,10 @@ test('health, agent and card API work end to end', async (t) => {
   assert.deepEqual(await (await fetch(`${base}/api/desktop/autostart`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ on: true }) })).json(), { supported: true, autostart: true });
   const project = await (await fetch(`${base}/api/projects`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'API project', path: dir }) })).json();
   assert.match(project.id, /^project_/);
+  const capabilities = await (await fetch(`${base}/api/capabilities?projectId=${project.id}`)).json();
+  assert.deepEqual(capabilities.clients.map((client) => client.id), ['codex', 'claude', 'opencode']);
+  const github = await (await fetch(`${base}/api/github?projectId=${project.id}`)).json();
+  assert.equal(github.available, false);
   const agent = await (await fetch(`${base}/api/agents`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'API agent', adapter: 'codex' }) })).json();
   assert.match(agent.id, /^agent_/);
   const assigned = await (await fetch(`${base}/api/agents/${agent.id}/preset`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ presetId: 'reviewer' }) })).json();

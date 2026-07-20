@@ -11,11 +11,13 @@ web/index.html + app.js + office-stage.js
         │ HTTP JSON / SSE
 src/server.mjs
         ├── src/store.mjs ── data/state.json
-        ├── src/runner.mjs ── codex / claude / custom process
+        ├── src/runner.mjs ── codex / claude / opencode / custom process
         ├── src/orchestrator.mjs ── master mission / staged handoff
         ├── src/scheduler.mjs ── once / interval / daily / weekly jobs
         ├── src/presets.mjs ── role / task prompt templates
-        └── src/detect.mjs ── local CLI discovery
+        ├── src/detect.mjs ── local CLI discovery
+        ├── src/capabilities.mjs ── MCP / skills / rules / plugins / subagents inventory
+        └── src/github.mjs ── git origin / GitHub Issues / Projects v2
 
 desktop/main.mjs
         └── folder picker / file reveal / Windows autostart / tray
@@ -36,6 +38,16 @@ desktop/main.mjs
 어댑터는 `executable`과 `args[]`로 구성된다. `{prompt}`, `{workdir}`, `{model}` 토큰만 치환한다. `shell:false`로 실행하여 프롬프트가 셸 명령으로 해석되지 않게 한다.
 
 Windows에서 중지는 `taskkill /pid <pid> /t /f`로 자식 프로세스 트리까지 종료한다. macOS/Linux에서는 SIGTERM을 사용한다.
+
+Claude/OpenCode 계열의 구조화 로그에서 Agent 또는 Task 도구 호출을 발견하면 `subagent.started` 이벤트로 정규화한다. UI는 이를 구성 파일에서 발견한 subagent 인력풀과 함께 ITO 패널에 표시한다. 이 계층은 CLI 내부 위임을 관찰하며 Workpets가 중첩 프로세스를 임의 생성하지는 않는다.
+
+### 구성 인벤토리 계층
+
+`capabilities.mjs`는 사용자 전역 설정과 활성 repo 설정을 읽어 Codex·Claude·OpenCode의 MCP, Skills, Rules/Instructions, Plugins, Agents/Subagents, Commands를 공통 형식으로 변환한다. 환경 변수 값, API 키, 프롬프트 본문은 응답에 포함하지 않고 구성 이름·범위·출처·활성 상태만 반환한다.
+
+### GitHub 계층
+
+`github.mjs`는 셸을 사용하지 않는 `execFile` 호출로 `git`과 `gh`를 실행한다. 활성 repo의 `origin`에서 owner/repo를 결정하고, Issue 목록·생성·상태 변경과 Projects v2 목록 조회를 담당한다. Issue 가져오기는 자동 실행이 아닌 TO-DO 카드 생성으로 제한하며 Projects v2는 현재 읽기 전용이다.
 
 동시 실행 한도에 도달하면 작업은 `queued`로 전환된다. 실행 프로세스가 끝나거나 중지되면 대기열의 다음 작업을 자동으로 실행한다. Codex의 JSONL 이벤트는 메시지, 명령 결과, 토큰 사용량으로 정규화하며 원본 이벤트도 카드에 보존한다.
 

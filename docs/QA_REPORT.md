@@ -1,4 +1,4 @@
-# v0.6 QA 보고서
+# v0.7 QA 보고서
 
 검증일: 2026-07-20 KST
 
@@ -7,38 +7,40 @@
 | 검사 | 결과 |
 |---|---|
 | `npm run check` JavaScript/ESM 구문 검사 | 통과 |
-| `npm test` | 15/15 통과 |
+| `npm test` | 18/18 통과 |
+| OpenCode 기본 어댑터와 저장 상태 마이그레이션 | 통과 |
+| Codex·Claude·OpenCode 구성 인벤토리와 비밀값 비노출 | 통과 |
+| Claude 형식 Agent 도구 호출의 subagent 이벤트 변환 | 통과 |
+| Git origin이 없는 repo의 안전한 GitHub 응답 | 통과 |
 | repo별 에이전트·마스터·파이프라인 저장 | 통과 |
-| 마스터 미션의 정상 단계 생성과 결과 인계 | 통과 |
-| 동시 요청 시 전역 실행 한도 예약 잠금 | 통과 |
-| 동시 실행 수 2에서도 같은 repo 경로 직렬화 | 통과 |
-| Codex 세션 ID 보존과 후속 실행 | 통과 |
-| 예약 실행·상태 복구·API·산출물 경로 차단 | 통과 |
+| 동일 repo 경로 동시 실행 잠금 | 통과 |
 | `git diff --check` | 통과 |
 
 ## 브라우저 UI 검증
 
-- 1280×820 데스크톱 기준 Office repo 선택기 렌더링 확인
-- repo 추가 모달에서 배치 에이전트, 마스터, 다중 인계 순서 저장 확인
-- 프로젝트 카드에 현재 Office, 마스터, 인계 순서, 충돌 정책 표시 확인
-- Office에 repo 전담 인원만 표시되고 `마스터에게 맡기기 · 자동 인계`가 기본 선택되는지 확인
-- repo 경로·직렬 보호 안내·준비 상태 4/4 확인
-- 사용량 화면의 repo 총계, 에이전트별 집계, 실행 상세 표 확인
+- 1280×820 화면에서 repo 선택기가 왼쪽 사이드바의 Office 메뉴 위에 표시됨
+- 도구 적용 현황에서 Codex·Claude·OpenCode 감지 상태와 구성 항목 표시 확인
+- Claude 담당 에이전트 아래 Explore·Plan·general-purpose ITO 인력풀 표시 확인
+- Git 연동 화면에서 `natekeem/my-vibe-office` origin과 GitHub CLI 인증 표시 확인
+- Projects v2 권한이 없는 경우 원인을 숨기지 않고 안내하는지 확인
+- OpenCode 어댑터가 에이전트와 설정 화면에 노출되는지 확인
+- 실제 외부 Issue나 Project는 QA 중 생성·수정하지 않음
 - 브라우저 console warning/error 0건
+
+## 로컬 실행 환경
+
+- Codex: 감지됨
+- Claude Code: 2.1.215 감지됨
+- OpenCode: 이 PC에는 실행 파일이 없어 미감지
+- GitHub CLI: 2.95.0, `natekeem` 인증 확인
+- GitHub Projects: 현재 토큰에 `read:project` scope가 없어 목록 조회가 제한됨
 
 ## 데스크톱·패키지 검증
 
-- `npm run desktop -- --smoke`: `SMOKE_OK`, 로컬 바인딩과 `/api/health` 정상
-- Electron 캐시 접근 경고는 테스트 환경의 기존 캐시 권한 문제이며 앱 기동·헬스 검사에는 영향 없음
-- 산출물: `release/Local-Agent-Office-0.6.0.exe`
-- SHA-256: `984F5936BEDE05E6C0DBDB82763B9D46EB9519ECE13DAEB3843EDB0B88AF933D`
+- `npm run desktop -- --smoke`: 로컬 바인딩과 `/api/health` 확인
+- 산출물: `release/Local-Agent-Office-0.7.0.exe`
+- SHA-256: `B7F8C304863A87D64C24308FD83C2517454B621E3E34D96BE02D228F9F82C7A9`
 
-## 충돌 방지 검증 범위
+## 제한 사항
 
-Runner는 프로세스 시작 전부터 작업 경로를 예약합니다. 같은 정규화 경로를 사용하는 두 요청이 동시에 들어와도 하나만 실행되고 다른 하나는 `queued`와 대기 사유를 기록합니다. 서로 다른 repo/worktree 경로는 전역 동시 실행 수까지 병렬 실행할 수 있습니다.
-
-자동 worktree 생성, 변경 파일 소유권 검사, 브랜치 자동 병합은 아직 구현하지 않았으며 v0.7 후보입니다.
-
-## 외부 기능 제외 감사
-
-실행 코드에는 원본 라이선스, 결제, 체크아웃, 피드백 전송, 텔레메트리, 앱 업데이트, 원격 터널 기능이 없다. 서버는 기본적으로 `127.0.0.1`에만 바인딩된다. 실제 Codex 또는 Claude CLI의 통신은 각 CLI 설정과 서비스 정책에 따른다.
+OpenCode 지원은 어댑터·자동 감지·구성 스캐너·UI까지 검증했지만, 현재 PC에 OpenCode가 설치되지 않아 실제 프롬프트 실행의 종단 간 검증은 하지 못했습니다. GitHub Projects는 읽기 전용이며, 양방향 칸반 동기화는 다음 단계입니다.

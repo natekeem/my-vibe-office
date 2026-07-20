@@ -49,6 +49,14 @@ test('settings clamp concurrency and retain adapter defaults', async (t) => {
   assert.equal(settings.concurrency, 8);
   assert.equal(settings.adapters.codex.executable, 'my-codex');
   assert.equal(settings.adapters.claude.executable, 'claude');
+  assert.equal(settings.adapters.opencode.executable, 'opencode');
+});
+
+test('OpenCode is a supported agent adapter', async (t) => {
+  const { store, dir } = await tempStore();
+  t.after(() => fs.promises.rm(dir, { recursive: true, force: true }));
+  const agent = await store.saveAgent({ name: 'Internal OpenCode', adapter: 'opencode' });
+  assert.equal(agent.adapter, 'opencode');
 });
 
 test('projects persist and can be removed', async (t) => {

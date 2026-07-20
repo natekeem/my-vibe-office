@@ -8,6 +8,11 @@
 | GET | `/api/state` | 설정, 에이전트, 카드 전체 스냅샷 |
 | GET | `/api/presets` | 역할 프리셋과 작업 지시 템플릿 |
 | GET | `/api/detect` | 마지막 CLI 자동 감지 결과 |
+| GET | `/api/capabilities?projectId={id}` | Codex·Claude·OpenCode의 MCP·Skills·Rules·Plugins·Subagents 구성 인벤토리 |
+| GET | `/api/github?projectId={id}` | repo origin의 GitHub Issues·Projects v2 조회 |
+| POST | `/api/github/issues` | 현재 repo에 GitHub Issue 생성 |
+| POST | `/api/github/import` | GitHub Issue를 연결된 TO-DO 작업 카드로 가져오기 |
+| POST | `/api/github/issues/state` | 연결된 GitHub Issue 닫기·다시 열기와 카드 링크 상태 갱신 |
 | GET | `/api/usage` | 토큰·실행시간·에이전트별 집계 |
 | GET | `/api/events` | SSE 상태·로그 스트림 |
 | GET | `/api/search?q={text}&status={status}` | 제목·지시·출력·후속 지시 검색 |
