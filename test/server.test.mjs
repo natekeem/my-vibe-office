@@ -44,6 +44,13 @@ test('health, agent and card API work end to end', async (t) => {
   const assigned = await (await fetch(`${base}/api/agents/${agent.id}/preset`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ presetId: 'reviewer' }) })).json();
   assert.equal(assigned.presetId, 'reviewer');
   assert.match(assigned.systemPrompt, /코드 리뷰어/);
+  const staffedProject = await (await fetch(`${base}/api/projects`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: project.id, name: project.name, path: dir, agentIds: [agent.id] }) })).json();
+  const teamResponse = await fetch(`${base}/api/projects/${project.id}/teams`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'Review', leadAgentId: agent.id, instructions: 'Review only.', routingMode: 'manual', workflowId: 'review-only' }) });
+  assert.equal(teamResponse.status, 201);
+  const team = await teamResponse.json();
+  assert.match(team.id, /^team_/);
+  assert.equal(team.leadAgentId, agent.id);
+  assert.equal(staffedProject.agentIds[0], agent.id);
   const cardRes = await fetch(`${base}/api/cards`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ title: 'API task', prompt: 'test', agentId: agent.id }) });
   assert.equal(cardRes.status, 201);
   const card = await cardRes.json();
@@ -60,4 +67,7 @@ test('health, agent and card API work end to end', async (t) => {
   assert.equal(state.agents.length, 1);
   assert.equal(state.cards.length, 1);
   assert.equal(state.settings.projects.length, 1);
+  assert.equal(state.settings.projects[0].teams.length, 1);
+  const deletedTeam = await fetch(`${base}/api/projects/${project.id}/teams/${team.id}`, { method: 'DELETE' });
+  assert.equal(deletedTeam.status, 200);
 });

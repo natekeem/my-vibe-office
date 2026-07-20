@@ -43,6 +43,14 @@ test('agent retains the assigned role preset id', async (t) => {
   assert.equal(store.getAgent(agent.id).presetId, 'developer');
 });
 
+test('agent keeps user instructions separate from its role preset', async (t) => {
+  const { store, dir } = await tempStore();
+  t.after(() => fs.promises.rm(dir, { recursive: true, force: true }));
+  const agent = await store.saveAgent({ name: 'FE', adapter: 'codex', presetId: 'frontend', systemPrompt: 'ROLE', userPrompt: 'Prefer TypeScript.' });
+  assert.equal(agent.systemPrompt, 'ROLE');
+  assert.equal(agent.userPrompt, 'Prefer TypeScript.');
+});
+
 test('settings clamp concurrency and retain adapter defaults', async (t) => {
   const { store, dir } = await tempStore();
   t.after(() => fs.promises.rm(dir, { recursive: true, force: true }));
@@ -97,6 +105,30 @@ test('repo stores assigned agents, master and handoff pipeline', async (t) => {
   assert.deepEqual(project.pipeline, [pm.id, developer.id]);
   await store.saveSettings({ activeProjectId: project.id });
   assert.equal(store.snapshot().settings.activeProjectId, project.id);
+});
+
+test('an office supports multiple teams with independent leads and workflows', async (t) => {
+  const { store, dir } = await tempStore();
+  await initGitRepo(dir);
+  t.after(() => fs.promises.rm(dir, { recursive: true, force: true }));
+  const feLead = await store.saveAgent({ name: 'FE Lead', adapter: 'custom' });
+  const fe = await store.saveAgent({ name: 'FE', adapter: 'custom' });
+  const qaLead = await store.saveAgent({ name: 'QA Lead', adapter: 'custom' });
+  const project = await store.saveProject({ name: 'Product', path: dir, agentIds: [feLead.id, fe.id, qaLead.id] });
+  const frontend = await store.saveProjectTeam(project.id, { name: 'Frontend', leadAgentId: feLead.id, agentIds: [fe.id], instructions: 'Browser QA required.', routingMode: 'sequential', workflowId: 'frontend-change', pipeline: [fe.id] });
+  const quality = await store.saveProjectTeam(project.id, { name: 'Quality', leadAgentId: qaLead.id, agentIds: [], instructions: 'Block regressions.', routingMode: 'manual', workflowId: 'review-only' });
+  const saved = store.getProject(project.id);
+  assert.equal(saved.teams.length, 2);
+  assert.deepEqual(frontend.agentIds, [feLead.id, fe.id]);
+  assert.deepEqual(frontend.pipeline, [feLead.id, fe.id]);
+  assert.equal(quality.leadAgentId, qaLead.id);
+  assert.equal(saved.defaultTeamId, frontend.id);
+  await store.deleteAgent(fe.id);
+  assert.deepEqual(store.getProject(project.id).teams[0].agentIds, [feLead.id]);
+  assert.equal(await store.removeProjectTeam(project.id, quality.id), true);
+  await store.deleteAgent(feLead.id);
+  assert.deepEqual(store.getProject(project.id).teams, []);
+  assert.equal(store.getProject(project.id).defaultTeamId, '');
 });
 
 test('one-time schedules reject an invalid execution time', async (t) => {

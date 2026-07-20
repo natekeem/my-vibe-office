@@ -61,9 +61,11 @@ Claude/OpenCode 계열의 구조화 로그에서 Agent 또는 Task 도구 호출
 
 동시 실행 한도에 도달하면 작업은 `queued`로 전환된다. 실행 프로세스가 끝나거나 중지되면 대기열의 다음 작업을 자동으로 실행한다. Codex의 JSONL 이벤트는 메시지, 명령 결과, 토큰 사용량으로 정규화하며 원본 이벤트도 카드에 보존한다.
 
-### 오케스트레이션 계층
+### 프롬프트·오케스트레이션 계층
 
-repo는 배치 에이전트, 마스터, 라우팅 모드와 선택적 순차 파이프라인을 가진다. `routing.mjs`는 요청 의도와 Workflow preset을 필요한 작업 모드로 바꾸고, 정확한 모드가 없으면 coder/fullstack/reviewer 같은 호환 모드를 선택한다. `Orchestrator`는 결정된 첫 단계 카드를 만들고 정상 종료 결과를 다음 단계 프롬프트로 인계한다. 실패하면 미션을 `review`로 멈춘다. `Runner`는 프로세스 생성 전부터 정규화된 작업 경로를 예약하므로 같은 repo 경로의 쓰기 작업은 겹치지 않는다.
+역할 프리셋은 역할 지식만 가지며 adapter나 model을 포함하지 않는다. 사용자 에이전트는 실행 프로필과 개인 추가 지시를 별도로 가진다. `Runner`는 실행할 때 `역할 프리셋 → 사용자 에이전트 지시 → Office/repo 규칙 → 팀 운영 지시 → 현재 작업` 순서로 프롬프트를 조립한다. 별도의 숨은 프로젝트 프롬프트는 없다.
+
+repo는 전체 배치 에이전트 풀과 여러 팀을 가진다. 각 팀은 독립적인 리드, 직원, 운영 지시, 라우팅 모드, 워크플로와 선택적 순차 파이프라인을 가진다. `routing.mjs`는 선택된 팀 안에서 요청 의도와 Workflow preset을 필요한 작업 모드로 바꾸고, 정확한 모드가 없으면 coder/fullstack/reviewer 같은 호환 모드를 선택한다. `Orchestrator`는 결정된 첫 단계 카드를 만들고 정상 종료 결과를 다음 단계 프롬프트로 인계한다. 실패하면 미션을 `review`로 멈춘다. `Runner`는 프로세스 생성 전부터 정규화된 작업 경로를 예약하므로 같은 repo 경로의 쓰기 작업은 겹치지 않는다.
 
 ### 제품 표면 경계
 
@@ -89,21 +91,27 @@ repo는 배치 에이전트, 마스터, 라우팅 모드와 선택적 순차 파
 
 ### Agent
 
-`id`, `name`, `role`, `modeId`, `specialties`, `presetId`, `adapter`, `model`, `color`, `systemPrompt`, `createdAt`, `updatedAt`
+`id`, `name`, `role`, `modeId`, `specialties`, `presetId`, `adapter`, `model`, `color`, `systemPrompt`, `userPrompt`, `createdAt`, `updatedAt`
 
-`presetId`는 현재 적용된 역할 프리셋을 식별한다. 역할 적용 API는 이름과 CLI 연결을 유지하면서 `role`, `systemPrompt`, 기본 색상을 하나의 원자적 설정 변경으로 갱신한다. 실제 실행 시 `Runner`가 `systemPrompt`를 카드별 작업 지시 앞에 결합한다.
+`presetId`는 현재 적용된 역할 프리셋을 식별한다. 역할 적용 API는 이름, CLI 연결, `userPrompt`를 유지하면서 `role`, `systemPrompt`, 기본 색상을 하나의 원자적 설정 변경으로 갱신한다.
 
 ### Project
 
-`id`, `name`, `path`, `description`, `agentIds`, `masterAgentId`, `pipeline`, `routingMode`, `workflowId`, `executionMode`, `createdAt`, `updatedAt`
+`id`, `name`, `path`, `description`, `agentIds`, `teams`, `defaultTeamId`, `executionMode`, `createdAt`, `updatedAt`
+
+이전 버전의 `masterAgentId`, `pipeline`, `routingMode`, `workflowId`는 팀이 없는 기존 Office의 호환 폴백으로 유지한다.
+
+### Team
+
+`id`, `name`, `description`, `instructions`, `leadAgentId`, `agentIds`, `pipeline`, `routingMode`, `workflowId`, `createdAt`, `updatedAt`
 
 ### Card
 
-`id`, `title`, `prompt`, `agentId`, `workdir`, `projectId`, `missionId`, `missionStep`, `parentCardId`, `queueReason`, `status`, `output`, `error`, `exitCode`, `pid`, `createdAt`, `updatedAt`, `startedAt`, `finishedAt`
+`id`, `title`, `prompt`, `agentId`, `workdir`, `projectId`, `teamId`, `missionId`, `missionStep`, `parentCardId`, `queueReason`, `status`, `output`, `error`, `exitCode`, `pid`, `createdAt`, `updatedAt`, `startedAt`, `finishedAt`
 
 ### Mission
 
-`id`, `projectId`, `title`, `prompt`, `pipeline`, `routingMode`, `workflowId`, `masterAgentId`, `stepIndex`, `cardIds`, `currentCardId`, `status`, `finalOutput`, `error`
+`id`, `projectId`, `teamId`, `teamName`, `title`, `prompt`, `pipeline`, `routingMode`, `workflowId`, `masterAgentId`, `stepIndex`, `cardIds`, `currentCardId`, `status`, `finalOutput`, `error`
 
 `routingMode`는 `adaptive`, `manual`, `sequential` 중 하나다. adaptive 모드에서는 `src/routing.mjs`가 요청 의도와 워크플로 프리셋을 기준으로 현재 repo에 배치된 에이전트 중 필요한 `modeId`만 선택한다. 적합한 모드가 없으면 마스터 에이전트로 안전하게 폴백한다.
 

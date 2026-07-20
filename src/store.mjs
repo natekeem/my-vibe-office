@@ -130,6 +130,7 @@ export class Store {
       model: String(input.model || '').trim(),
       color: /^#[0-9a-f]{6}$/i.test(input.color || '') ? input.color : '#7c6ff7',
       systemPrompt: String(input.systemPrompt || '').trim(),
+      userPrompt: String(input.userPrompt || '').trim(),
       presetId: String(input.presetId || '').trim(),
       modeId: String(input.modeId || '').trim(),
       specialties: Array.isArray(input.specialties) ? [...new Set(input.specialties.map(String).map((item) => item.trim()).filter(Boolean))].slice(0, 12) : [],
@@ -152,6 +153,13 @@ export class Store {
       project.agentIds = (project.agentIds || []).filter((id) => id !== agentId);
       project.pipeline = (project.pipeline || []).filter((id) => id !== agentId);
       if (project.masterAgentId === agentId) project.masterAgentId = project.pipeline[0] || project.agentIds[0] || '';
+      for (const team of project.teams || []) {
+        team.agentIds = (team.agentIds || []).filter((id) => id !== agentId);
+        team.pipeline = (team.pipeline || []).filter((id) => id !== agentId);
+        if (team.leadAgentId === agentId) team.leadAgentId = team.agentIds[0] || '';
+      }
+      project.teams = (project.teams || []).filter((team) => team.leadAgentId);
+      if (!project.teams.some((team) => team.id === project.defaultTeamId)) project.defaultTeamId = project.teams[0]?.id || '';
       project.updatedAt = now();
     }
     await this.persist();
@@ -183,6 +191,7 @@ export class Store {
     const card = {
       id: id('card'), title, prompt, agentId: input.agentId,
       workdir: String(input.workdir || '').trim(), projectId: String(input.projectId || '').trim(),
+      teamId: String(input.teamId || '').trim(),
       missionId: String(input.missionId || '').trim(), missionStep: Number.isFinite(Number(input.missionStep)) ? Number(input.missionStep) : null,
       parentCardId: String(input.parentCardId || '').trim(), status: 'todo', queueReason: '',
       output: '', error: '', exitCode: null, pid: null, events: [], runs: [], followups: [], sessionId: null, pendingFollowup: null,
@@ -196,7 +205,7 @@ export class Store {
   async updateCard(cardId, patch) {
     const card = this.state.cards.find((c) => c.id === cardId);
     if (!card) throw new Error('작업을 찾을 수 없습니다.');
-    const allowed = ['status', 'output', 'error', 'exitCode', 'pid', 'startedAt', 'finishedAt', 'title', 'prompt', 'workdir', 'projectId', 'missionId', 'missionStep', 'parentCardId', 'queueReason', 'events', 'runs', 'followups', 'durationMs', 'sessionId', 'pendingFollowup', 'githubIssue'];
+    const allowed = ['status', 'output', 'error', 'exitCode', 'pid', 'startedAt', 'finishedAt', 'title', 'prompt', 'workdir', 'projectId', 'teamId', 'missionId', 'missionStep', 'parentCardId', 'queueReason', 'events', 'runs', 'followups', 'durationMs', 'sessionId', 'pendingFollowup', 'githubIssue'];
     for (const key of allowed) if (Object.hasOwn(patch, key)) card[key] = patch[key];
     card.updatedAt = now();
     await this.persist();
@@ -331,6 +340,28 @@ export class Store {
   listProjects() { return clone(this.state.settings.projects || []); }
   getProject(projectId) { return clone((this.state.settings.projects || []).find((project) => project.id === projectId) || null); }
 
+  cleanProjectTeam(input, projectAgentIds, existingId = '') {
+    const valid = new Set(projectAgentIds || []);
+    const agentIds = [...new Set((Array.isArray(input.agentIds) ? input.agentIds : []).filter((agentId) => valid.has(agentId)))];
+    const leadAgentId = valid.has(input.leadAgentId) ? input.leadAgentId : '';
+    if (leadAgentId && !agentIds.includes(leadAgentId)) agentIds.unshift(leadAgentId);
+    const pipeline = [...new Set((Array.isArray(input.pipeline) ? input.pipeline : []).filter((agentId) => agentIds.includes(agentId)))];
+    if (leadAgentId && !pipeline.includes(leadAgentId)) pipeline.unshift(leadAgentId);
+    for (const agentId of agentIds) if (!pipeline.includes(agentId)) pipeline.push(agentId);
+    const name = String(input.name || '').trim();
+    if (!name) throw new Error('팀 이름이 필요합니다.');
+    if (!leadAgentId) throw new Error('팀 리드(마스터)를 선택하세요.');
+    return {
+      id: existingId || id('team'), name,
+      description: String(input.description || '').trim(),
+      instructions: String(input.instructions || '').trim(),
+      leadAgentId, agentIds, pipeline,
+      routingMode: ['manual', 'sequential'].includes(input.routingMode) ? input.routingMode : 'adaptive',
+      workflowId: String(input.workflowId || 'auto').trim() || 'auto',
+      updatedAt: now(),
+    };
+  }
+
   async saveProject(input) {
     const name = String(input.name || '').trim();
     if (!name || !input.path) throw new Error('프로젝트 이름과 폴더가 필요합니다.');
@@ -350,6 +381,10 @@ export class Store {
     const clean = {
       name, path: projectPath, description: String(input.description || '').trim(),
       agentIds, masterAgentId, pipeline,
+      teams: Array.isArray(input.teams)
+        ? input.teams.map((team) => this.cleanProjectTeam(team, agentIds, String(team.id || '')))
+        : (found?.teams || []).map((team) => this.cleanProjectTeam(team, agentIds, team.id)),
+      defaultTeamId: String(input.defaultTeamId ?? found?.defaultTeamId ?? '').trim(),
       gitRemote: inspected.remotes.find((remote) => remote.name === 'origin')?.url || '',
       executionMode: input.executionMode === 'isolated-worktrees' ? 'isolated-worktrees' : 'shared-serial',
       routingMode: ['manual', 'sequential'].includes(input.routingMode) ? input.routingMode : 'adaptive',
@@ -359,9 +394,35 @@ export class Store {
     if (found) Object.assign(found, clean);
     else this.state.settings.projects.push({ id: id('project'), ...clean, createdAt: now() });
     const saved = found || this.state.settings.projects.at(-1);
+    if (!saved.teams.some((team) => team.id === saved.defaultTeamId)) saved.defaultTeamId = saved.teams[0]?.id || '';
     if (!this.state.settings.activeProjectId) this.state.settings.activeProjectId = saved.id;
     await this.persist();
     return clone(saved);
+  }
+
+  async saveProjectTeam(projectId, input) {
+    const project = this.state.settings.projects?.find((item) => item.id === projectId);
+    if (!project) throw new Error('Office를 찾을 수 없습니다.');
+    project.teams ||= [];
+    const found = input.id && project.teams.find((team) => team.id === input.id);
+    const clean = this.cleanProjectTeam(input, project.agentIds || [], found?.id || '');
+    if (found) Object.assign(found, clean);
+    else project.teams.push({ ...clean, createdAt: now() });
+    if (!project.defaultTeamId) project.defaultTeamId = (found || project.teams.at(-1)).id;
+    project.updatedAt = now();
+    await this.persist();
+    return clone(found || project.teams.at(-1));
+  }
+
+  async removeProjectTeam(projectId, teamId) {
+    const project = this.state.settings.projects?.find((item) => item.id === projectId);
+    if (!project) throw new Error('Office를 찾을 수 없습니다.');
+    const before = (project.teams || []).length;
+    project.teams = (project.teams || []).filter((team) => team.id !== teamId);
+    if (project.defaultTeamId === teamId) project.defaultTeamId = project.teams[0]?.id || '';
+    project.updatedAt = now();
+    await this.persist();
+    return before !== project.teams.length;
   }
 
   async removeProject(projectId) {
@@ -387,10 +448,10 @@ export class Store {
     if (!title || !prompt) throw new Error('미션 제목과 작업 지시가 필요합니다.');
     const stamp = now();
     const mission = {
-      id: id('mission'), projectId: project.id, title, prompt, pipeline,
+      id: id('mission'), projectId: project.id, teamId: String(input.teamId || ''), teamName: String(input.teamName || ''), title, prompt, pipeline,
       routingMode: String(input.routingMode || project.routingMode || 'adaptive'),
       workflowId: String(input.workflowId || project.workflowId || 'auto'),
-      masterAgentId: project.masterAgentId || pipeline[0], status: 'running', stepIndex: 0,
+      masterAgentId: String(input.masterAgentId || project.masterAgentId || pipeline[0]), status: 'running', stepIndex: 0,
       cardIds: [], currentCardId: '', finalOutput: '', error: '',
       createdAt: stamp, updatedAt: stamp, finishedAt: null,
     };

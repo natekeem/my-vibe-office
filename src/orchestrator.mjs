@@ -10,8 +10,24 @@ export class Orchestrator {
   async startMission(input) {
     const project = this.store.getProject(input.projectId);
     if (!project) throw new Error('미션을 실행할 repo를 선택하세요.');
-    const route = resolveMissionRoute(project, this.store.listAgents(), input.prompt, input.workflowId || project.workflowId);
-    const mission = await this.store.createMission({ ...input, ...route });
+    const requestedTeam = input.teamId && (project.teams || []).find((item) => item.id === input.teamId);
+    if (input.teamId && !requestedTeam) throw new Error('선택한 팀을 찾을 수 없습니다.');
+    const team = requestedTeam
+      || (project.teams || []).find((item) => item.id === project.defaultTeamId);
+    const routingScope = team ? {
+      ...project,
+      agentIds: team.agentIds,
+      masterAgentId: team.leadAgentId,
+      pipeline: team.pipeline,
+      routingMode: team.routingMode,
+      workflowId: team.workflowId,
+    } : project;
+    const route = resolveMissionRoute(routingScope, this.store.listAgents(), input.prompt, input.workflowId || routingScope.workflowId);
+    const mission = await this.store.createMission({
+      ...input, ...route,
+      teamId: team?.id || '', teamName: team?.name || '',
+      masterAgentId: team?.leadAgentId || project.masterAgentId || route.pipeline[0],
+    });
     this.emit('mission', mission);
     const card = await this.createStep(mission, 0, null);
     await this.runner.enqueue(card.id);
@@ -29,6 +45,7 @@ export class Orchestrator {
     const prompt = [
       '[My Vibe Office 멀티 에이전트 미션]',
       `Repo: ${project.name} (${project.path})`,
+      mission.teamId && `팀: ${mission.teamName || mission.teamId}`,
       `라우팅: ${mission.routingMode || 'adaptive'} · ${mission.workflowId || 'auto'}`,
       `전체 목표: ${mission.prompt}`,
       `현재 단계: ${stepIndex + 1}/${mission.pipeline.length} · ${agent.name} (${agent.role || agent.modeId || '담당 역할'})`,
@@ -37,6 +54,7 @@ export class Orchestrator {
     const card = await this.store.createCard({
       title: `[${stepIndex + 1}/${mission.pipeline.length}] ${mission.title}`,
       prompt, agentId: agent.id, workdir: project.path, projectId: project.id,
+      teamId: mission.teamId || '',
       missionId: mission.id, missionStep: stepIndex, parentCardId: previousCard?.id || '',
     });
     const updated = await this.store.updateMission(mission.id, {

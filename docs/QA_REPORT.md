@@ -1,4 +1,4 @@
-# v0.9.1 QA 보고서
+# v0.10.0 QA 보고서
 
 검증일: 2026-07-20 KST
 
@@ -7,7 +7,11 @@
 | 검사 | 결과 |
 |---|---|
 | `npm run check` | 통과 |
-| `npm test` | 26/26 통과 |
+| `npm test` | 29/29 통과 |
+| 역할 프리셋과 사용자 지시 독립 저장 | 통과 |
+| 다중 팀 생성·수정·삭제와 리드 무결성 | 통과 |
+| 선택 팀 내부 미션 라우팅·팀 식별자 보존 | 통과 |
+| 역할→개인→Office→팀→작업 프롬프트 결합 | 통과 |
 | 일반 폴더의 Office 등록 차단 | 통과 |
 | canonical Git root·branch·history·worktree 조회 | 통과 |
 | 에이전트별 branch/worktree 생성 및 재사용 | 통과 |
@@ -32,6 +36,8 @@
 - Repo 설정의 adaptive·manual·sequential 라우팅과 Workflow 선택 확인
 - 개발 오피스 모드 프리셋과 직함·모드·전문 태그 표시 확인
 - 오피스 대시보드의 직원 수·토큰 급여·14일 그래프·84일 히트맵·모델 소비 표시 확인
+- 사용자 에이전트 편집의 역할 프리셋·직원 프로필·실행 환경·개인 지시 4계층 표시 확인
+- 한 Office의 여러 팀 카드와 팀별 리드·직원·운영 지시·라우팅·워크플로 편집 확인
 
 ## 로컬 환경 제한
 
@@ -44,5 +50,5 @@
 ## 데스크톱·패키지
 
 - `npm run desktop -- --smoke`: `SMOKE_OK`, 로컬 바인딩과 상태 API 정상
-- 산출물: `release/Local-Agent-Office-0.9.1.exe`
-- SHA-256: `957A93D1D2402B5DDA1E98A3582C83367AD434ECA646B9E9543295616C6FDF3F`
+- 산출물: `release/Local-Agent-Office-0.10.0.exe`
+- SHA-256: `0B0BA0F7FA0E4CA5B9C3AE6B0F455F166A9DD7FF6574FF0862142E18697DC979`

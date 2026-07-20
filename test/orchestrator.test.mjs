@@ -31,3 +31,28 @@ test('master mission hands successful output to the next agent', async (t) => {
   assert.match(second.prompt, /Plan complete/);
   assert.deepEqual(enqueued, [first.id, second.id]);
 });
+
+test('a mission stays inside the selected team and records its identity', async (t) => {
+  const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'agent-office-team-mission-'));
+  await initGitRepo(dir);
+  t.after(() => fs.promises.rm(dir, { recursive: true, force: true }));
+  const store = new Store(path.join(dir, 'state.json'));
+  await store.init();
+  const platformLead = await store.saveAgent({ name: 'Platform Lead', modeId: 'planner', adapter: 'custom' });
+  const backend = await store.saveAgent({ name: 'Backend', modeId: 'backend', adapter: 'custom' });
+  const unrelated = await store.saveAgent({ name: 'Designer', modeId: 'design', adapter: 'custom' });
+  const project = await store.saveProject({ name: 'Team repo', path: dir, agentIds: [platformLead.id, backend.id, unrelated.id] });
+  const team = await store.saveProjectTeam(project.id, { name: 'Platform', leadAgentId: platformLead.id, agentIds: [backend.id], pipeline: [platformLead.id, backend.id], routingMode: 'sequential', workflowId: 'backend-change', instructions: 'Protect API compatibility.' });
+  const enqueued = [];
+  const orchestrator = new Orchestrator(store, { enqueue: async (id) => enqueued.push(id) });
+  const mission = await orchestrator.startMission({ projectId: project.id, teamId: team.id, title: 'API change', prompt: 'Change the backend API' });
+  const card = store.getCard(mission.currentCardId);
+  assert.equal(mission.teamId, team.id);
+  assert.equal(mission.teamName, 'Platform');
+  assert.equal(mission.masterAgentId, platformLead.id);
+  assert.deepEqual(mission.pipeline, [platformLead.id, backend.id]);
+  assert.equal(card.teamId, team.id);
+  assert.match(card.prompt, /팀: Platform/);
+  assert.ok(!mission.pipeline.includes(unrelated.id));
+  assert.deepEqual(enqueued, [card.id]);
+});

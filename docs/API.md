@@ -19,10 +19,12 @@
 | GET | `/api/projects` | 프로젝트 폴더 프리셋 목록 |
 | POST | `/api/projects` | 프로젝트 생성 또는 `id` 기준 수정 |
 | DELETE | `/api/projects/{id}` | 프로젝트 삭제 |
+| POST | `/api/projects/{id}/teams` | Office 팀 생성 또는 팀 `id` 기준 수정 |
+| DELETE | `/api/projects/{id}/teams/{teamId}` | 팀 설정 삭제(직원·작업 기록은 유지) |
 | GET | `/api/repository?projectId={id}` | canonical Git root·상태·branches·history·worktrees 조회 |
 | POST | `/api/repository/worktrees` | Office 에이전트 전용 branch·worktree 준비 |
 | GET | `/api/missions` | 멀티 에이전트 미션 목록 |
-| POST | `/api/missions` | repo 라우팅 설정에 따른 멀티 에이전트 미션 생성·첫 단계 실행 |
+| POST | `/api/missions` | `teamId`로 선택한 팀의 라우팅 설정에 따른 미션 생성·첫 단계 실행 |
 | POST | `/api/pick-folder` | 데스크톱 네이티브 폴더 선택기 |
 | GET | `/api/desktop` | 자동 시작 지원·현재 상태 |
 | POST | `/api/desktop/autostart` | `{ "on": true }`로 Windows 자동 시작 변경 |

@@ -106,6 +106,16 @@ export function createServer({ store, runner, scheduler, orchestrator, integrati
       if (method === 'POST' && url.pathname === '/api/projects') {
         const project = await store.saveProject(await body(req, config.maxBodyBytes)); emit('reload', { kind: 'projects' }); return send(res, 201, project);
       }
+      const projectTeamMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/teams$/);
+      if (projectTeamMatch && method === 'POST') {
+        const team = await store.saveProjectTeam(decodeURIComponent(projectTeamMatch[1]), await body(req, config.maxBodyBytes));
+        emit('reload', { kind: 'projects' }); return send(res, 201, team);
+      }
+      const projectTeamDeleteMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/teams\/([^/]+)$/);
+      if (projectTeamDeleteMatch && method === 'DELETE') {
+        const removed = await store.removeProjectTeam(decodeURIComponent(projectTeamDeleteMatch[1]), decodeURIComponent(projectTeamDeleteMatch[2]));
+        emit('reload', { kind: 'projects' }); return send(res, removed ? 200 : 404, { ok: removed });
+      }
       if (method === 'POST' && url.pathname === '/api/repository/worktrees') {
         const input = await body(req, config.maxBodyBytes);
         const project = store.getProject(input.projectId);

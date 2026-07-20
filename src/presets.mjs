@@ -1,4 +1,14 @@
-const role = (id, name, modeId, role, color, tags, prompt) => ({ id, name, modeId, role, color, tags, prompt });
+const operatingProtocol = `공통 실행 규칙:
+1. 작업 전에 저장소 상태와 관련 문서를 읽고 확인한 사실과 추정을 구분한다.
+2. 현재 역할의 책임 범위를 우선하되 필요한 다른 전문 모드는 명시적으로 제안한다.
+3. 기존 사용자 변경과 프로젝트 규칙을 보존하고 필요한 범위만 수정한다.
+4. 완료 조건에 맞는 검사와 테스트를 실행하고 실패를 숨기지 않는다.
+5. 결과는 변경 사항, 검증 결과, 남은 위험, 다음 인계 사항 순으로 보고한다.`;
+
+const role = (id, name, modeId, role, color, tags, prompt) => ({
+  id, name, modeId, role, color, tags, promptVersion: 1,
+  prompt: `${prompt}\n\n${operatingProtocol}`,
+});
 
 export const presets = Object.freeze({
   roles: [

@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { agentWorktreePath, ensureAgentWorktree, inspectRepository } from './repository.mjs';
+import { presets } from './presets.mjs';
 
 function resolveArgs(template, values) {
   return template.map((arg) => String(arg).replaceAll('{prompt}', values.prompt).replaceAll('{workdir}', values.workdir).replaceAll('{model}', values.model).replaceAll('{sessionId}', values.sessionId || ''));
@@ -92,7 +93,16 @@ export class Runner {
       if (!fs.existsSync(workdir) || !fs.statSync(workdir).isDirectory()) throw new Error(`작업 폴더를 찾을 수 없습니다: ${workdir}`);
       const followups = (card.followups || []).map((item, index) => `후속 지시 ${index + 1}: ${item.text}`).join('\n');
       isResume = agent.adapter === 'codex' && card.sessionId && card.pendingFollowup && adapter.resumeArgs;
-      let prompt = agent.systemPrompt ? `${agent.systemPrompt}\n\n--- 작업 ---\n${card.prompt}` : card.prompt;
+      const team = (project.teams || []).find((item) => item.id === card.teamId);
+      const rolePrompt = presets.roles.find((item) => item.id === agent.presetId)?.prompt || agent.systemPrompt;
+      const promptLayers = [
+        rolePrompt && `--- 역할 프리셋 ---\n${rolePrompt}`,
+        agent.userPrompt && `--- 사용자 지정 에이전트 지시 ---\n${agent.userPrompt}`,
+        project.description && `--- Office / repo 규칙 ---\n${project.description}`,
+        team?.instructions && `--- ${team.name} 팀 운영 지시 ---\n${team.instructions}`,
+        `--- 현재 작업 ---\n${card.prompt}`,
+      ].filter(Boolean);
+      let prompt = promptLayers.join('\n\n');
       if (isResume) prompt = card.pendingFollowup;
       else if (followups) prompt += `\n\n--- 후속 지시 ---\n${followups}`;
       args = resolveArgs(isResume ? adapter.resumeArgs : adapter.args, { prompt, workdir, model: agent.model || '', sessionId: card.sessionId });

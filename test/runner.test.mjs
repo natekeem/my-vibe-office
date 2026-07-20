@@ -16,11 +16,12 @@ test('runner streams output and moves a successful card to review', async (t) =>
   await store.saveSettings({
     concurrency: 1,
     defaultWorkdir: dir,
-    adapters: { custom: { executable: process.execPath, args: ['-e', 'console.log(process.argv[1])', '{prompt}'] } },
+    adapters: { custom: { executable: process.execPath, args: ['-e', 'console.log(process.argv[1])', '--', '{prompt}'] } },
   });
-  const agent = await store.saveAgent({ name: 'Test runner', adapter: 'custom', systemPrompt: 'SYSTEM' });
-  const project = await store.saveProject({ name: 'Runner repo', path: dir, agentIds: [agent.id] });
-  const card = await store.createCard({ title: 'Run', prompt: 'PROMPT', agentId: agent.id, workdir: dir, projectId: project.id });
+  const agent = await store.saveAgent({ name: 'Test runner', adapter: 'custom', systemPrompt: 'ROLE_SYSTEM', userPrompt: 'USER_INSTRUCTION' });
+  const project = await store.saveProject({ name: 'Runner repo', path: dir, description: 'OFFICE_RULES', agentIds: [agent.id] });
+  const team = await store.saveProjectTeam(project.id, { name: 'Frontend', leadAgentId: agent.id, instructions: 'TEAM_RULES' });
+  const card = await store.createCard({ title: 'Run', prompt: 'CURRENT_TASK', agentId: agent.id, workdir: dir, projectId: project.id, teamId: team.id });
   let resolveDone;
   const done = new Promise((resolve) => { resolveDone = resolve; });
   const runner = new Runner(store, (event, value) => {
@@ -32,8 +33,11 @@ test('runner streams output and moves a successful card to review', async (t) =>
   const result = await Promise.race([done, timed]);
   clearTimeout(timeout);
   assert.equal(result.exitCode, 0);
-  assert.match(result.output, /SYSTEM/);
-  assert.match(result.output, /PROMPT/);
+  assert.match(result.output, /역할 프리셋.*ROLE_SYSTEM/s);
+  assert.match(result.output, /사용자 지정 에이전트 지시.*USER_INSTRUCTION/s);
+  assert.match(result.output, /Office \/ repo 규칙.*OFFICE_RULES/s);
+  assert.match(result.output, /Frontend 팀 운영 지시.*TEAM_RULES/s);
+  assert.match(result.output, /현재 작업.*CURRENT_TASK/s);
   assert.equal(runner.runningCount(), 0);
 });
 
