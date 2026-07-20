@@ -6,7 +6,7 @@
 |---|---|---|
 | GET | `/api/health` | 서버와 실행 작업 수 확인 |
 | GET | `/api/state` | 설정, 에이전트, 카드 전체 스냅샷 |
-| GET | `/api/presets` | 역할 프리셋과 작업 지시 템플릿 |
+| GET | `/api/presets` | 역할·작업 모드·워크플로·작업 지시 템플릿 |
 | GET | `/api/detect` | 마지막 CLI 자동 감지 결과 |
 | GET | `/api/capabilities?projectId={id}` | Codex·Claude·OpenCode의 MCP·Skills·Rules·Plugins·Subagents 구성 인벤토리 |
 | GET | `/api/github?projectId={id}` | repo origin의 GitHub Issues·Projects v2 조회 |
@@ -22,7 +22,7 @@
 | GET | `/api/repository?projectId={id}` | canonical Git root·상태·branches·history·worktrees 조회 |
 | POST | `/api/repository/worktrees` | Office 에이전트 전용 branch·worktree 준비 |
 | GET | `/api/missions` | 멀티 에이전트 미션 목록 |
-| POST | `/api/missions` | repo 파이프라인 미션 생성·첫 단계 실행 |
+| POST | `/api/missions` | repo 라우팅 설정에 따른 멀티 에이전트 미션 생성·첫 단계 실행 |
 | POST | `/api/pick-folder` | 데스크톱 네이티브 폴더 선택기 |
 | GET | `/api/desktop` | 자동 시작 지원·현재 상태 |
 | POST | `/api/desktop/autostart` | `{ "on": true }`로 Windows 자동 시작 변경 |

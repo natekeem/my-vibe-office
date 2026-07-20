@@ -1,4 +1,4 @@
-# v0.8 QA 보고서
+# v0.9.1 QA 보고서
 
 검증일: 2026-07-20 KST
 
@@ -7,7 +7,7 @@
 | 검사 | 결과 |
 |---|---|
 | `npm run check` | 통과 |
-| `npm test` | 20/20 통과 |
+| `npm test` | 26/26 통과 |
 | 일반 폴더의 Office 등록 차단 | 통과 |
 | canonical Git root·branch·history·worktree 조회 | 통과 |
 | 에이전트별 branch/worktree 생성 및 재사용 | 통과 |
@@ -29,6 +29,9 @@
 - Code Agent 클릭 시 선택된 CLI 상세 하나만 하단에 표시됨
 - Claude 상세에서 built-in subagents 표시 확인
 - `claude-samsung` 예시 커스텀 프로필 모달의 호환 계열·명령·환경 라우팅 필드 확인
+- Repo 설정의 adaptive·manual·sequential 라우팅과 Workflow 선택 확인
+- 개발 오피스 모드 프리셋과 직함·모드·전문 태그 표시 확인
+- 오피스 대시보드의 직원 수·토큰 급여·14일 그래프·84일 히트맵·모델 소비 표시 확인
 
 ## 로컬 환경 제한
 
@@ -41,5 +44,5 @@
 ## 데스크톱·패키지
 
 - `npm run desktop -- --smoke`: `SMOKE_OK`, 로컬 바인딩과 상태 API 정상
-- 산출물: `release/Local-Agent-Office-0.8.0.exe`
-- SHA-256: `A64FC0286D7DAC202095D824C29DB8D156FE709E745BCDC3F94FAD1CB6ECF137`
+- 산출물: `release/Local-Agent-Office-0.9.1.exe`
+- SHA-256: `957A93D1D2402B5DDA1E98A3582C83367AD434ECA646B9E9543295616C6FDF3F`

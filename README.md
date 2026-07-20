@@ -31,6 +31,7 @@ Codex, Claude Code 같은 로컬 CLI 에이전트에게 일을 배정하고 상�
 - 동시 실행 대기열과 자동 순차 실행
 - 실행 중 stdout/stderr 실시간 스트리밍(SSE)
 - Codex JSONL 구조화 로그, repo·에이전트·실행별 입력/출력 토큰과 실행시간 통계
+- 직원 수, 토큰 급여 원장, 날짜별 그래프, 모델별 소비, 84일 활동 히트맵을 보여주는 오피스 대시보드
 - 작업 편집, Codex 세션을 유지한 후속 지시, 이전 실행 이력
 - 작업 폴더에서 이번 실행 산출물 자동 탐색과 텍스트 미리보기
 - 기록 검색과 상태 필터
@@ -52,7 +53,7 @@ cd 'C:\Users\samsung\OneDrive\문서\workpets-local'
 
 또는 `npm start`를 실행합니다. 기본 주소는 `http://127.0.0.1:4317`입니다.
 
-개발용 데스크톱 창은 의존성을 설치한 뒤 `npm run desktop`으로 실행합니다. 패키징된 버전은 `release/Local-Agent-Office-0.8.0.exe`입니다. 이 실행 파일은 설치 없이 실행되는 portable 앱이며 상태는 Windows 사용자 앱 데이터 폴더에 저장합니다. 창을 닫으면 트레이로 숨고 트레이 메뉴에서 완전히 종료할 수 있습니다.
+개발용 데스크톱 창은 의존성을 설치한 뒤 `npm run desktop`으로 실행합니다. 패키징된 버전은 `release/Local-Agent-Office-0.9.1.exe`입니다. 이 실행 파일은 설치 없이 실행되는 portable 앱이며 상태는 Windows 사용자 앱 데이터 폴더에 저장합니다. 창을 닫으면 트레이로 숨고 트레이 메뉴에서 완전히 종료할 수 있습니다.
 
 새 portable 파일을 만들려면 `npm run dist`를 실행합니다. 빌드는 OneDrive 파일 잠금을 피하기 위해 `%LOCALAPPDATA%\Temp`에서 수행되고 완성본만 `release/`로 복사됩니다.
 
@@ -79,10 +80,14 @@ args: exec, --json, {prompt}
 
 ## 문서
 
+- [문서 지도](docs/DOCUMENTATION_MAP.md)
+- [공통 에이전트 규칙](AGENTS.md)
+- [에이전트 작업 가이드](docs/CONTRIBUTING_AGENT.md)
 - [분석과 범위](docs/ANALYSIS.md)
 - [아키텍처](docs/ARCHITECTURE.md)
 - [로컬 API](docs/API.md)
-- [개발 로드맵](docs/ROADMAP.md)
+- [통합 제품 로드맵](docs/ROADMAP.md)
+- [Windows 앱과 Web Hub 경계](docs/PRODUCT_SURFACES.md)
 - [QA 결과](docs/QA_REPORT.md)
 - [v0.8 기능 감사](docs/FEATURE_AUDIT.md)
 

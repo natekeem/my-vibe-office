@@ -13,6 +13,7 @@ src/server.mjs
         ├── src/store.mjs ── data/state.json
         ├── src/runner.mjs ── codex / claude / opencode / custom process
         ├── src/orchestrator.mjs ── master mission / staged handoff
+        ├── src/routing.mjs ── intent / workflow / compatible mode routing
         ├── src/scheduler.mjs ── once / interval / daily / weekly jobs
         ├── src/presets.mjs ── role / task prompt templates
         ├── src/detect.mjs ── local CLI discovery
@@ -62,7 +63,15 @@ Claude/OpenCode 계열의 구조화 로그에서 Agent 또는 Task 도구 호출
 
 ### 오케스트레이션 계층
 
-repo는 배치 에이전트, 마스터, 순차 파이프라인을 가진다. `Orchestrator`는 마스터 미션의 첫 단계 카드를 만들고 정상 종료 결과를 다음 단계 프롬프트로 인계한다. 실패하면 미션을 `review`로 멈춘다. `Runner`는 프로세스 생성 전부터 정규화된 작업 경로를 예약하므로 같은 repo 경로의 쓰기 작업은 겹치지 않는다.
+repo는 배치 에이전트, 마스터, 라우팅 모드와 선택적 순차 파이프라인을 가진다. `routing.mjs`는 요청 의도와 Workflow preset을 필요한 작업 모드로 바꾸고, 정확한 모드가 없으면 coder/fullstack/reviewer 같은 호환 모드를 선택한다. `Orchestrator`는 결정된 첫 단계 카드를 만들고 정상 종료 결과를 다음 단계 프롬프트로 인계한다. 실패하면 미션을 `review`로 멈춘다. `Runner`는 프로세스 생성 전부터 정규화된 작업 경로를 예약하므로 같은 repo 경로의 쓰기 작업은 겹치지 않는다.
+
+### 제품 표면 경계
+
+현재 저장소는 Windows Local Office를 구현한다. 향후 Web Hub는 별도 패키지와 배포 경계를 사용하며 로컬 CLI를 직접 실행하지 않는다. 두 표면 사이에는 검증된 manifest와 사용자가 승인한 공개 데이터만 이동한다. 상세 계약은 `docs/PRODUCT_SURFACES.md`가 정본이다.
+
+### 사용량 대시보드
+
+대시보드는 활성 Office의 카드와 실행 이력에 저장된 usage event를 읽어 직원·날짜·모델별로 집계한다. 원본 통계는 로컬 상태에 남고 외부 전송은 없다. `토큰 급여`는 입력+출력 토큰의 제품 내 별칭이며 실제 통화 비용이 아니다. 모델별 단가 설정이 도입되기 전에는 비용을 추정하지 않는다.
 
 ### 예약 계층
 
