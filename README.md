@@ -1,4 +1,4 @@
-# Local Agent Office
+# My Vibe Office
 
 Codex, Claude Code 같은 로컬 CLI 에이전트에게 일을 배정하고 상태와 로그를 확인하는 로컬 전용 가상 오피스입니다.
 
@@ -42,22 +42,32 @@ Codex, Claude Code 같은 로컬 CLI 에이전트에게 일을 배정하고 상�
 - 데스크톱 트레이, 작업 완료 알림, Windows 자동 시작
 - 산출물 미리보기와 Windows 파일 탐색기 열기
 - 설치 없이 Node.js만으로 실행되는 로컬 서버
-- 자체 백엔드 서버·분석 전송·라이선스·자동 업데이트 코드 없음. GitHub 탭은 사용자의 로컬 `gh` 인증으로 해당 repo 정보만 조회
+- 외부 분석 전송 없이 로컬에서 동작하며 GitHub 탭은 사용자의 로컬 `gh` 인증으로 해당 repo 정보만 조회
 
 ## 실행
 
 PowerShell에서:
 
 ```powershell
-cd 'C:\Users\samsung\OneDrive\문서\workpets-local'
+cd 'C:\path\to\my-vibe-office'
 .\start.ps1
 ```
 
 또는 `npm start`를 실행합니다. 기본 주소는 `http://127.0.0.1:4317`입니다.
 
-개발용 데스크톱 창은 의존성을 설치한 뒤 `npm run desktop`으로 실행합니다. 패키징된 버전은 `release/Local-Agent-Office-0.10.0.exe`입니다. 이 실행 파일은 설치 없이 실행되는 portable 앱이며 상태는 Windows 사용자 앱 데이터 폴더에 저장합니다. 창을 닫으면 트레이로 숨고 트레이 메뉴에서 완전히 종료할 수 있습니다.
+개발용 데스크톱 창은 의존성을 설치한 뒤 `npm run desktop`으로 실행합니다. 검증된 portable 산출물과 해시는 [QA 보고서](docs/QA_REPORT.md)에서 확인합니다. 상태는 Windows 사용자 앱 데이터 폴더에 저장하며, 창을 닫으면 트레이로 숨고 트레이 메뉴에서 완전히 종료할 수 있습니다.
 
 새 portable 파일을 만들려면 `npm run dist`를 실행합니다. 빌드는 OneDrive 파일 잠금을 피하기 위해 `%LOCALAPPDATA%\Temp`에서 수행되고 완성본만 `release/`로 복사됩니다.
+
+## 개발 이어받기
+
+새 Codex 세션이나 다른 코딩 에이전트에서 작업을 이어갈 때는 다음 순서로 시작합니다.
+
+1. [AGENTS.md](AGENTS.md) — 공통 불변 조건과 작업 규칙
+2. [현재 인수인계](docs/HANDOFF.md) — 버전, 보류 범위, 알려진 제약, 다음 시작점
+3. [문서 지도](docs/DOCUMENTATION_MAP.md) — 작업 유형별 정본 선택
+
+Claude Code, OpenCode, Roo Code의 진입 파일도 같은 정본을 가리킵니다. 기능을 변경한 세션은 종료 전에 인수인계 문서와 관련 정본을 함께 갱신해야 합니다.
 
 ## CLI 설정
 
@@ -85,14 +95,18 @@ Office 설정에서는 Git repo와 전체 직원 풀을 정합니다. 에이전�
 - [문서 지도](docs/DOCUMENTATION_MAP.md)
 - [공통 에이전트 규칙](AGENTS.md)
 - [에이전트 작업 가이드](docs/CONTRIBUTING_AGENT.md)
-- [분석과 범위](docs/ANALYSIS.md)
+- [현재 인수인계](docs/HANDOFF.md)
+- [제품 발견 기록과 개발 범위](docs/ANALYSIS.md)
 - [아키텍처](docs/ARCHITECTURE.md)
+- [설계 결정](docs/DECISIONS.md)
+- [로컬 개발과 운영](docs/OPERATIONS.md)
+- [용어집](docs/GLOSSARY.md)
 - [로컬 API](docs/API.md)
 - [통합 제품 로드맵](docs/ROADMAP.md)
 - [Windows 앱과 Web Hub 경계](docs/PRODUCT_SURFACES.md)
 - [QA 결과](docs/QA_REPORT.md)
-- [v0.8 기능 감사](docs/FEATURE_AUDIT.md)
+- [v0.8 역사 감사 기록](docs/FEATURE_AUDIT.md)
 
-## 주의
+## 개발 원칙
 
-이 프로젝트는 설치된 앱을 수정하지 않으며 원본의 라이선스, 결제, 업데이트, 텔레메트리, 피드백, 원격 터널 기능을 포함하지 않습니다. UI와 백엔드는 유지보수가 가능한 독립 코드로 작성했습니다.
+My Vibe Office는 local-first 제품입니다. 프롬프트, 소스, diff, 비밀정보와 사내 endpoint를 사용자 승인 없이 외부로 전송하지 않으며, 외부 바인딩·원격 터널·자동 업데이트는 별도 보안 설계 전까지 지원하지 않습니다.

@@ -181,10 +181,10 @@ export function inspectCapabilities({ projectPath = '', detected = {}, adapters 
   const custom = Object.entries(adapters || {}).filter(([id]) => !['codex', 'claude', 'opencode', 'custom'].includes(id)).map(([id, adapter]) => {
     const inherited = byFamily[adapter.family]?.items || [];
     const items = inherited.map((item) => ({ ...item }));
-    items.push({ type: 'runtime', name: '실행 명령', scope: 'profile', source: 'Workpets settings', detail: `${adapter.executable || '미설정'} ${(adapter.args || []).join(' ')}`.trim(), enabled: Boolean(adapter.executable) });
+    items.push({ type: 'runtime', name: '실행 명령', scope: 'profile', source: 'My Vibe Office settings', detail: `${adapter.executable || '미설정'} ${(adapter.args || []).join(' ')}`.trim(), enabled: Boolean(adapter.executable) });
     for (const [name, value] of Object.entries(adapter.env || {})) {
       const reference = String(value).match(/^\{env:([A-Za-z_][A-Za-z0-9_]*)\}$/);
-      items.push({ type: 'runtime', name, scope: 'profile', source: 'Workpets settings', detail: reference ? `환경 변수 ${reference[1]}에서 주입` : '프로필에 로컬 값 설정됨', enabled: true });
+      items.push({ type: 'runtime', name, scope: 'profile', source: 'My Vibe Office settings', detail: reference ? `환경 변수 ${reference[1]}에서 주입` : '프로필에 로컬 값 설정됨', enabled: true });
     }
     return client(id, adapter.label || id, resolveExecutable(adapter.executable), items, adapter.family || 'custom');
   });

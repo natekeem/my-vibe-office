@@ -41,7 +41,7 @@ desktop/main.mjs
 
 Windows에서 중지는 `taskkill /pid <pid> /t /f`로 자식 프로세스 트리까지 종료한다. macOS/Linux에서는 SIGTERM을 사용한다.
 
-Claude/OpenCode 계열의 구조화 로그에서 Agent 또는 Task 도구 호출을 발견하면 `subagent.started` 이벤트로 정규화한다. UI는 이를 구성 파일에서 발견한 subagent 인력풀과 함께 ITO 패널에 표시한다. 이 계층은 CLI 내부 위임을 관찰하며 Workpets가 중첩 프로세스를 임의 생성하지는 않는다.
+Claude/OpenCode 계열의 구조화 로그에서 Agent 또는 Task 도구 호출을 발견하면 `subagent.started` 이벤트로 정규화한다. UI는 이를 구성 파일에서 발견한 subagent 인력풀과 함께 ITO 패널에 표시한다. 이 계층은 CLI 내부 위임을 관찰하며 앱이 중첩 프로세스를 임의 생성하지는 않는다.
 
 ### 구성 인벤토리 계층
 
@@ -51,7 +51,7 @@ Claude/OpenCode 계열의 구조화 로그에서 Agent 또는 Task 도구 호출
 
 ### GitHub 계층
 
-`repository.mjs`는 `git rev-parse --show-toplevel`로 Office의 canonical root를 확정하고 branch, upstream, working tree, remotes, commit history, worktrees를 공통 모델로 변환한다. 격리 모드의 Runner는 에이전트별 영속 `workpets/*` branch와 사용자 홈 아래 별도 worktree를 준비한다. 동일 에이전트의 작업은 같은 worktree에서 직렬화되고 서로 다른 에이전트는 전역 동시 실행 한도 안에서 병렬로 실행할 수 있다.
+`repository.mjs`는 `git rev-parse --show-toplevel`로 Office의 canonical root를 확정하고 branch, upstream, working tree, remotes, commit history, worktrees를 공통 모델로 변환한다. 격리 모드의 Runner는 에이전트별 영속 `my-vibe-office/*` branch와 사용자 홈 아래 별도 worktree를 준비한다. 동일 에이전트의 작업은 같은 worktree에서 직렬화되고 서로 다른 에이전트는 전역 동시 실행 한도 안에서 병렬로 실행할 수 있다.
 
 `github.mjs`는 셸을 사용하지 않는 `execFile` 호출로 `gh`를 실행한다. 활성 repo의 `origin`에서 owner/repo를 결정하고 Issue 목록·생성·상태 변경, Projects v2 항목, Pull Request와 check rollup 조회를 담당한다. Issue 가져오기는 자동 실행이 아닌 TO-DO 카드 생성으로 제한하며 Projects v2는 현재 읽기 전용이다.
 

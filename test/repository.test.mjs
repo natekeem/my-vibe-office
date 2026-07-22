@@ -7,7 +7,7 @@ import { ensureAgentWorktree, inspectRepository } from '../src/repository.mjs';
 import { initGitRepo } from '../test-support/helpers.mjs';
 
 test('repository inspection gates non-git folders and prepares isolated agent worktrees', async (t) => {
-  const base = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'workpets-repository-'));
+  const base = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'my-vibe-office-repository-'));
   const repo = path.join(base, 'repo');
   const plain = path.join(base, 'plain');
   await fs.promises.mkdir(plain);
@@ -19,12 +19,12 @@ test('repository inspection gates non-git folders and prepares isolated agent wo
   assert.equal(inspected.valid, true);
   assert.equal(inspected.branch, 'main');
   assert.ok(inspected.commits.length >= 1);
-  const previous = process.env.WORKPETS_WORKTREE_ROOT;
-  process.env.WORKPETS_WORKTREE_ROOT = path.join(base, 'worktrees');
-  t.after(() => { if (previous === undefined) delete process.env.WORKPETS_WORKTREE_ROOT; else process.env.WORKPETS_WORKTREE_ROOT = previous; });
+  const previous = process.env.MY_VIBE_OFFICE_WORKTREE_ROOT;
+  process.env.MY_VIBE_OFFICE_WORKTREE_ROOT = path.join(base, 'worktrees');
+  t.after(() => { if (previous === undefined) delete process.env.MY_VIBE_OFFICE_WORKTREE_ROOT; else process.env.MY_VIBE_OFFICE_WORKTREE_ROOT = previous; });
   const prepared = await ensureAgentWorktree(repo, { id: 'agent_12345678', name: 'Frontend Dev' });
   assert.equal(prepared.created, true);
   assert.equal(fs.existsSync(path.join(prepared.path, '.git')), true);
-  assert.equal(prepared.branch, 'workpets/agent_12345678');
+  assert.equal(prepared.branch, 'my-vibe-office/agent_12345678');
   assert.equal((await ensureAgentWorktree(repo, { id: 'agent_12345678', name: 'Frontend Dev' })).created, false);
 });

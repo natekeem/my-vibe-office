@@ -1,6 +1,6 @@
-# v0.10.0 QA 보고서
+# v0.10.1 문서 기준선 QA 보고서
 
-검증일: 2026-07-20 KST
+검증일: 2026-07-22 KST
 
 ## 자동 검증
 
@@ -8,10 +8,12 @@
 |---|---|
 | `npm run check` | 통과 |
 | `npm test` | 29/29 통과 |
+| `npm run docs:check` | 문서 정본·상대 링크·금지 표현 검사 통과 |
 | 역할 프리셋과 사용자 지시 독립 저장 | 통과 |
 | 다중 팀 생성·수정·삭제와 리드 무결성 | 통과 |
 | 선택 팀 내부 미션 라우팅·팀 식별자 보존 | 통과 |
 | 역할→개인→Office→팀→작업 프롬프트 결합 | 통과 |
+| `my-vibe-office/*` worktree namespace 생성·재사용 | 통과 |
 | 일반 폴더의 Office 등록 차단 | 통과 |
 | canonical Git root·branch·history·worktree 조회 | 통과 |
 | 에이전트별 branch/worktree 생성 및 재사용 | 통과 |
@@ -50,5 +52,6 @@
 ## 데스크톱·패키지
 
 - `npm run desktop -- --smoke`: `SMOKE_OK`, 로컬 바인딩과 상태 API 정상
-- 산출물: `release/Local-Agent-Office-0.10.0.exe`
-- SHA-256: `0B0BA0F7FA0E4CA5B9C3AE6B0F455F166A9DD7FF6574FF0862142E18697DC979`
+- 산출물: `release/Local-Agent-Office-0.10.1.exe`
+- SHA-256: `E9441711217DF76484A5C722F5E262C3546983943AAE40CCF15891F3D16E4754`
+- v0.10.1은 기능 확장 없이 문서 연속성과 내부 namespace를 정리한 패치다.

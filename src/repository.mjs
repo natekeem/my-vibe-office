@@ -58,7 +58,7 @@ export async function inspectRepository(projectPath) {
     const branchText = await git(result.root, ['for-each-ref', '--sort=-committerdate', '--format=%(refname:short)%1f%(HEAD)%1f%(upstream:short)%1f%(committerdate:iso8601-strict)', 'refs/heads', 'refs/remotes']);
     result.branches = branchText.split(/\r?\n/).filter(Boolean).slice(0, 100).map((line) => {
       const [name, head, branchUpstream, updatedAt] = line.split('\x1f');
-      return { name, current: head === '*', upstream: branchUpstream || '', updatedAt: updatedAt || '', remote: name?.includes('/') && !name.startsWith('workpets/') };
+      return { name, current: head === '*', upstream: branchUpstream || '', updatedAt: updatedAt || '', remote: name?.includes('/') && !name.startsWith('my-vibe-office/') };
     });
     const logText = await git(result.root, ['log', '-30', '--pretty=format:%H%x1f%h%x1f%an%x1f%aI%x1f%s']);
     result.commits = logText.split(/\r?\n/).filter(Boolean).map((line) => {
@@ -85,7 +85,7 @@ export function agentWorktreePath(repoPath, agent) {
   const rootHash = crypto.createHash('sha1').update(path.resolve(repoPath).toLowerCase()).digest('hex').slice(0, 7);
   const rootName = `${safeSegment(path.basename(repoPath))}-${rootHash}`;
   const agentName = safeSegment(agent?.id || agent?.name);
-  const base = process.env.WORKPETS_WORKTREE_ROOT || path.join(os.homedir(), '.workpets', 'worktrees');
+  const base = process.env.MY_VIBE_OFFICE_WORKTREE_ROOT || path.join(os.homedir(), '.my-vibe-office', 'worktrees');
   return path.join(base, rootName, `${agentName}-${String(agent?.id || '').slice(-8)}`);
 }
 
@@ -93,7 +93,7 @@ export async function ensureAgentWorktree(repoPath, agent) {
   const inspected = await inspectRepository(repoPath);
   if (!inspected.valid) throw new Error(inspected.error || '유효한 Git repo가 필요합니다.');
   const target = agentWorktreePath(inspected.root, agent);
-  const branch = `workpets/${safeSegment(agent?.id || agent?.name)}`;
+  const branch = `my-vibe-office/${safeSegment(agent?.id || agent?.name)}`;
   if (fs.existsSync(path.join(target, '.git'))) return { path: target, branch, created: false };
   await fs.promises.mkdir(path.dirname(target), { recursive: true });
   let exists = false;

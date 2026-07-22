@@ -1,6 +1,6 @@
 {
   "name": "local-agent-office",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "author": "Local Agent Office contributors",
   "private": true,
   "type": "module",
@@ -12,7 +12,8 @@
     "desktop": "electron .",
     "dist": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-portable.ps1",
     "test": "node --test",
-    "check": "node --check desktop/main.mjs && node --check src/main.mjs && node --check src/server.mjs && node --check src/store.mjs && node --check src/runner.mjs && node --check src/orchestrator.mjs && node --check src/routing.mjs && node --check src/scheduler.mjs && node --check src/detect.mjs && node --check src/capabilities.mjs && node --check src/github.mjs && node --check src/repository.mjs && node --check src/presets.mjs && node --check web/office-stage.js && node --check web/app.js"
+    "docs:check": "node scripts/check-docs.mjs",
+    "check": "node --check desktop/main.mjs && node --check src/main.mjs && node --check src/server.mjs && node --check src/store.mjs && node --check src/runner.mjs && node --check src/orchestrator.mjs && node --check src/routing.mjs && node --check src/scheduler.mjs && node --check src/detect.mjs && node --check src/capabilities.mjs && node --check src/github.mjs && node --check src/repository.mjs && node --check src/presets.mjs && node --check scripts/check-docs.mjs && node --check web/office-stage.js && node --check web/app.js && npm run docs:check"
   },
   "engines": {
     "node": ">=20"
