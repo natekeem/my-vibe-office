@@ -4,7 +4,7 @@
 
 - Windows 10/11
 - Node.js 20 이상
-- Git
+- Git (선택, branch·history·worktree·GitHub 기능에 필요)
 - 선택: GitHub CLI `gh`
 - 실행하려는 CLI: Codex, Claude Code, OpenCode 또는 custom profile
 
@@ -57,7 +57,7 @@ OneDrive 파일 잠금을 피하기 위해 임시 디렉터리에서 빌드하�
 
 ### Office가 활성화되지 않음
 
-선택한 폴더에서 `git rev-parse --show-toplevel`이 성공하는지 확인한다. 일반 폴더는 의도적으로 거부한다.
+선택한 폴더가 존재하고 읽을 수 있는지 확인한다. Git이 없는 일반 폴더도 Office로 사용할 수 있고 Git 기능만 비활성화된다.
 
 ### 작업이 queued에서 대기함
 
@@ -70,7 +70,7 @@ gh auth status
 gh auth refresh -s read:project
 ```
 
-Issues와 Projects 권한은 다를 수 있다. Projects v2는 현재 읽기 중심이다.
+Issues와 Projects 권한은 다를 수 있다. `read:project`가 없어도 Issues·PR·로컬 작업 보드는 계속 사용할 수 있고 Projects v2 읽기만 제한된다.
 
 ### custom profile 환경 변수가 누락됨
 

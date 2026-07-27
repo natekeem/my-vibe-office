@@ -3,9 +3,18 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { agentWorktreePath, ensureAgentWorktree, inspectRepository } from './repository.mjs';
 import { presets } from './presets.mjs';
+import { inspectCapabilities } from './capabilities.mjs';
+import { recommendCapabilityPolicy } from './tool-policy.mjs';
 
-function resolveArgs(template, values) {
-  return template.map((arg) => String(arg).replaceAll('{prompt}', values.prompt).replaceAll('{workdir}', values.workdir).replaceAll('{model}', values.model).replaceAll('{sessionId}', values.sessionId || ''));
+function resolveArgs(template, values, family = '') {
+  const resolved = [];
+  for (const raw of template) {
+    const positionalPrompt = String(raw) === '{prompt}';
+    const arg = String(raw).replaceAll('{prompt}', values.prompt).replaceAll('{workdir}', values.workdir).replaceAll('{model}', values.model).replaceAll('{sessionId}', values.sessionId || '');
+    if (family === 'codex' && positionalPrompt && arg.startsWith('-') && resolved.at(-1) !== '--') resolved.push('--');
+    resolved.push(arg);
+  }
+  return resolved;
 }
 
 function resolveEnvironment(configured = {}) {
@@ -79,11 +88,12 @@ export class Runner {
     let adapter, workdir, isResume, args;
     try {
       const project = card.projectId ? this.store.getProject(card.projectId) : null;
-      if (!project) throw new Error('작업을 실행할 Git repo Office가 연결되지 않았습니다.');
+      if (!project) throw new Error('작업을 실행할 Office 폴더가 연결되지 않았습니다.');
       const repository = await inspectRepository(project.path);
-      if (!repository.valid) throw new Error(`Office Git repo를 확인할 수 없습니다: ${repository.error}`);
+      if (!repository.valid) throw new Error(`Office 작업 폴더를 확인할 수 없습니다: ${repository.error}`);
       adapter = settings.adapters[agent.adapter];
       if (!adapter?.executable) throw new Error(`${agent.adapter} 실행 파일이 설정되지 않았습니다.`);
+      if (path.isAbsolute(adapter.executable) && !fs.existsSync(adapter.executable)) throw new Error(`${agent.adapter} 실행 파일을 찾을 수 없습니다. Code Agents 설정에서 경로를 다시 확인하세요: ${adapter.executable}`);
       workdir = card.workdir || project.path;
       if (project.executionMode === 'isolated-worktrees') {
         const prepared = await ensureAgentWorktree(project.path, agent);
@@ -94,10 +104,18 @@ export class Runner {
       const followups = (card.followups || []).map((item, index) => `후속 지시 ${index + 1}: ${item.text}`).join('\n');
       isResume = agent.adapter === 'codex' && card.sessionId && card.pendingFollowup && adapter.resumeArgs;
       const team = (project.teams || []).find((item) => item.id === card.teamId);
-      const rolePrompt = presets.roles.find((item) => item.id === agent.presetId)?.prompt || agent.systemPrompt;
+      const rolePreset = presets.roles.find((item) => item.id === agent.presetId);
+      const rolePrompt = rolePreset?.prompt || agent.systemPrompt;
+      let effectiveCapabilities = agent.capabilities || [];
+      if (agent.capabilityMode !== 'manual' && rolePreset) {
+        const inventory = inspectCapabilities({ projectPath: project.path, detected: settings.detected || {}, adapters: settings.adapters || {} });
+        const client = inventory.clients.find((item) => item.id === agent.adapter) || inventory.clients.find((item) => item.id === (adapter.family || agent.adapter));
+        effectiveCapabilities = recommendCapabilityPolicy(client?.items || [], client?.id || agent.adapter, rolePreset);
+      }
       const promptLayers = [
         rolePrompt && `--- 역할 프리셋 ---\n${rolePrompt}`,
         agent.userPrompt && `--- 사용자 지정 에이전트 지시 ---\n${agent.userPrompt}`,
+        effectiveCapabilities.length && `--- 이 에이전트에 지정된 도구 정책 ---\n아래 현재 설치된 자산을 우선 사용하되, 실행 환경에서 사용 불가하면 그 사실을 보고하세요.\n${effectiveCapabilities.map((item) => `- ${item.clientId} / ${item.type} / ${item.name} (${item.scope || 'unknown'})`).join('\n')}`,
         project.description && `--- Office / repo 규칙 ---\n${project.description}`,
         team?.instructions && `--- ${team.name} 팀 운영 지시 ---\n${team.instructions}`,
         `--- 현재 작업 ---\n${card.prompt}`,
@@ -105,7 +123,7 @@ export class Runner {
       let prompt = promptLayers.join('\n\n');
       if (isResume) prompt = card.pendingFollowup;
       else if (followups) prompt += `\n\n--- 후속 지시 ---\n${followups}`;
-      args = resolveArgs(isResume ? adapter.resumeArgs : adapter.args, { prompt, workdir, model: agent.model || '', sessionId: card.sessionId });
+      args = resolveArgs(isResume ? adapter.resumeArgs : adapter.args, { prompt, workdir, model: agent.model || '', sessionId: card.sessionId }, adapter.family || agent.adapter);
       await this.store.prepareRun(cardId);
     }
     catch (error) { this.reservations.delete(cardId); throw error; }
@@ -130,7 +148,7 @@ export class Runner {
     const output = async (chunk) => this.handleChunk(cardId, chunk.toString('utf8'));
     child.stdout?.on('data', output);
     child.stderr?.on('data', output);
-    child.on('error', async (error) => this.fail(cardId, error.message));
+    child.on('error', (error) => { void this.fail(cardId, error.message).catch(() => {}); });
     child.on('close', async (code, signal) => {
       if (!this.processes.has(cardId)) return;
       await this.flushBuffer(cardId);

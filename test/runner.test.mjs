@@ -111,6 +111,29 @@ test('Codex follow-up resumes the captured session', async (t) => {
   assert.equal(store.getCard(card.id).pendingFollowup, null);
 });
 
+test('Codex positional prompt is protected when it begins with dashes', async (t) => {
+  const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'agent-office-codex-prompt-'));
+  await initGitRepo(dir);
+  await fs.promises.writeFile(path.join(dir, 'AGENTS.md'), '# Project rules\n', 'utf8');
+  t.after(() => fs.promises.rm(dir, { recursive: true, force: true }));
+  const store = new Store(path.join(dir, 'state.json'));
+  await store.init();
+  await store.saveSettings({ concurrency: 1, defaultWorkdir: dir, adapters: { codex: {
+    executable: process.execPath,
+    args: ['-e', 'console.log(process.argv[1])', '{prompt}'],
+  } } });
+  const agent = await store.saveAgent({ name: 'Codex', adapter: 'codex', presetId: 'frontend', systemPrompt: 'ROLE' });
+  const project = await store.saveProject({ name: 'Prompt repo', path: dir, agentIds: [agent.id] });
+  const card = await store.createCard({ title: 'prompt', prompt: 'TASK', agentId: agent.id, workdir: dir, projectId: project.id });
+  const runner = new Runner(store, () => {});
+  await runner.run(card.id);
+  const deadline = Date.now() + 3000;
+  while (Date.now() < deadline && store.getCard(card.id).status !== 'review') await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(store.getCard(card.id).exitCode, 0);
+  assert.match(store.getCard(card.id).output, /^--- 역할 프리셋 ---/);
+  assert.match(store.getCard(card.id).output, /에이전트에 지정된 도구 정책.*AGENTS\.md/s);
+});
+
 test('runner records Claude-style subagent hiring events', async (t) => {
   const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'agent-office-subagent-'));
   await initGitRepo(dir);

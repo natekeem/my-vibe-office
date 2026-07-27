@@ -16,7 +16,7 @@ Codex, Claude Code 같은 로컬 CLI 에이전트에게 일을 배정하고 상�
 - 기능 구현·진단·검토·리서치·문서화 작업 지시 템플릿
 - 상세 작업 생성 후 즉시 실행 옵션
 - 프로젝트 폴더 프리셋과 네이티브 폴더 선택기
-- Office를 유효한 로컬 Git repo에 연결한 뒤 팀·작업 기능을 여는 계층형 시작 흐름
+- Git 없는 로컬 폴더로 시작하고 나중에 Git·GitHub 기능을 자동 활성화하는 Office 흐름
 - 왼쪽 사이드바 최상단 Office 선택기와 repo별 직원 풀 설정
 - 한 Office 안의 여러 팀·팀별 리드·직원·운영 지시·라우팅·워크플로 설정
 - 마스터 목표를 요청에 맞는 작업 모드로 보내는 가변 멀티 에이전트 미션
@@ -24,7 +24,7 @@ Codex, Claude Code 같은 로컬 CLI 에이전트에게 일을 배정하고 상�
 - 같은 작업 경로의 동시 쓰기를 막는 repo 경로 잠금과 대기 사유 표시
 - Codex·Claude Code·OpenCode 어댑터와 사용자 지정 명령 템플릿
 - 설치된 Codex·Claude Code·OpenCode CLI 자동 감지
-- CLI별 MCP·Skills·Rules·Plugins·Subagents 적용 현황 인벤토리
+- CLI별 MCP·Skills·Rules·Plugins·Subagents 인벤토리와 역할 프리셋 기반 자동 추천·에이전트별 조정
 - Claude/OpenCode 서브에이전트 인력풀과 실제 호출을 보여주는 ITO 시각화
 - GitHub Issues 생성·가져오기·상태 동기화와 Projects v2 조회
 - Office 관리 화면의 Issues·Kanban·Pull Requests·Branches·History·Worktrees 통합 탭
@@ -38,6 +38,9 @@ Codex, Claude Code 같은 로컬 CLI 에이전트에게 일을 배정하고 상�
 - 작업 폴더에서 이번 실행 산출물 자동 탐색과 텍스트 미리보기
 - 기록 검색과 상태 필터
 - 한 번, 반복 간격, 매일, 매주 예약 작업
+- 당일 작업·미션 메타데이터와 Git 변경을 정리하는 검토용 데일리 리포트
+- 콘텐츠 전략·출처 조사·블로그 작성·SEO·편집 QA·발행 역할과 블로그 전용 워크플로
+- 클릭 가능한 실행 기록과 최종 답변·원본 로그·재실행 이력을 분리한 작업 상세 화면
 - 로컬 JSON 영속화와 자동 복구
 - 데스크톱 트레이, 작업 완료 알림, Windows 자동 시작
 - 산출물 미리보기와 Windows 파일 탐색기 열기
@@ -59,6 +62,37 @@ cd 'C:\path\to\my-vibe-office'
 
 새 portable 파일을 만들려면 `npm run dist`를 실행합니다. 빌드는 OneDrive 파일 잠금을 피하기 위해 `%LOCALAPPDATA%\Temp`에서 수행되고 완성본만 `release/`로 복사됩니다.
 
+## 다른 PC에서 EXE 만들기
+
+Git에는 소스 코드와 빌드 설정만 저장하고, 생성된 EXE는 저장하지 않습니다. `release/*.exe`는 `.gitignore`에 포함되어 있으므로 다른 Windows PC에서는 저장소를 클론한 뒤 그 PC에서 portable EXE를 빌드합니다.
+
+필요한 환경:
+
+- Windows PowerShell
+- Git
+- Node.js 20 이상과 npm
+
+PowerShell에서 다음 명령을 실행합니다.
+
+```powershell
+git clone <저장소-주소> local-agent-office
+cd local-agent-office
+npm ci
+npm run check
+npm test
+npm run dist
+```
+
+빌드가 끝나면 `release/Local-Agent-Office-<버전>.exe`가 생성됩니다. 이 파일은 설치 프로그램이 아니라 다른 폴더로 복사해 바로 실행할 수 있는 portable 실행 파일입니다. EXE를 매번 직접 만들 필요가 없다면, 한 PC에서 빌드한 이 파일을 USB, 사내 파일 공유 또는 GitHub Release 같은 별도 배포 경로로 다른 PC에 전달할 수도 있습니다.
+
+기존 portable 앱을 실행 중이라 Windows가 같은 EXE의 교체를 막으면 빌드는 중단되지 않고 `Local-Agent-Office-<버전>-new.exe`로 저장됩니다. 기존 앱을 완전히 종료한 뒤 새 파일을 실행하거나 원하는 이름으로 바꾸면 됩니다.
+
+빌드 결과의 무결성을 확인하려면 다음 명령으로 SHA-256 해시를 확인합니다.
+
+```powershell
+Get-FileHash -Algorithm SHA256 .\release\Local-Agent-Office-*.exe
+```
+
 ## 개발 이어받기
 
 새 Codex 세션이나 다른 코딩 에이전트에서 작업을 이어갈 때는 다음 순서로 시작합니다.
@@ -77,8 +111,10 @@ Codex의 일반적인 비대화형 예시는 다음과 같습니다.
 
 ```text
 executable: codex
-args: exec, --json, {prompt}
+args: exec, --json, --, {prompt}
 ```
+
+Codex처럼 위치 인자 앞에 옵션 종료 표식이 필요한 CLI에서는 `{prompt}` 앞의 `--`를 유지해야 합니다. 역할 프롬프트가 `---`로 시작해도 옵션으로 잘못 해석되지 않도록 기본 설정과 실행기가 함께 보호합니다.
 
 실제 설치 방식에 따라 실행 파일의 절대 경로가 필요할 수 있습니다.
 
@@ -89,6 +125,12 @@ args: exec, --json, {prompt}
 사용자 에이전트는 역할 프리셋과 별개로 이름·직함·작업 모드, CLI 어댑터, 모델, 개인 추가 지시를 가집니다. 실제 실행 프롬프트는 `역할 프리셋 → 개인 지시 → Office/repo 공통 규칙 → 팀 운영 지시 → 현재 작업` 순서로 결합됩니다. 따라서 역할 프리셋을 복제하거나 어댑터마다 같은 프롬프트를 반복할 필요가 없습니다.
 
 Office 설정에서는 Git repo와 전체 직원 풀을 정합니다. 에이전트 화면의 팀 관리에서 파트별 팀을 만들고 각 팀의 리드(마스터), 직원, 운영 지시, 라우팅 방식과 워크플로를 지정합니다. 빠른 발사대에서 팀을 선택하면 요청은 그 팀 안에서만 라우팅되며, `debugger`, `frontend`, `backend`, `architect`, `qa` 같은 작업 모드에 따라 필요한 직원만 선택합니다. PM→개발→디자인→QA 같은 고정 순서는 강제하지 않으며 팀별로 직접 처리 또는 명시적인 순차 실행을 선택할 수 있습니다.
+
+현재 Office의 경계는 Git repo가 아니라 사용자가 지정한 로컬 작업 폴더입니다. Git이 없어도 팀·작업·자동화·CLI 실행을 사용하고, 나중에 Git을 초기화하고 새로고침하면 branch·history·worktree·GitHub 기능이 자동으로 열립니다. 에이전트 설정에서는 역할 프리셋과 현재 CLI를 기준으로 MCP·Skills·Plugins·Rules·Subagents 우선 사용 정책을 자동 추천합니다. 긴 목록은 기본적으로 접혀 있고 필요할 때 추천 다시 적용·전체 선택·선택 해제·개별 조정을 사용할 수 있습니다. 실제 접근 권한은 각 CLI의 로컬 설정을 따릅니다.
+
+팀 편집에서는 Office 직원을 카드로 전체 선택·해제하고, 실행 우선순위나 순차 실행 순서를 화살표로 조정합니다. 블로그 요청은 `콘텐츠 전략 → 공식 출처 조사 → 초안 작성 → SEO 편집 → 편집 QA` 워크플로로 자동 라우팅할 수 있으며, 발행은 별도 승인 워크플로로 분리됩니다.
+
+예약 작업의 `데일리 리포트`를 선택하면 매일 18시가 기본값으로 설정됩니다. 실행 시 당일 작업 카드와 멀티 에이전트 미션의 상태 메타데이터를 모으고 에이전트가 현재 폴더의 Git 변경을 확인해 Markdown 초안을 만듭니다. 원본 프롬프트·비밀값·내부 URL·사용자명·로컬 절대 경로는 보고 대상에서 제외하며 파일 수정, 커밋, 푸시, 외부 게시는 자동 수행하지 않습니다.
 
 ## 문서
 

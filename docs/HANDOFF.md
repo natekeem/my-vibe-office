@@ -6,8 +6,8 @@
 
 - 제품: My Vibe Office
 - 구현 버전: v0.10.1
-- 개발 상태: v0.10 기능 구현과 검증 완료
-- 현재 작업: 문서 정본·세션 인수인계 체계 강화 완료
+- 개발 상태: v0.10 기능 개선과 검증 완료
+- 현재 작업: 카드 간격 정규화, 실행 기록 상세 진입, 최종 결과·원본 로그·재실행 이력 분리 구현 완료
 - 보류 범위: v0.11 기능 개발은 명시적인 재개 요청 전까지 시작하지 않는다.
 
 현재 Git 상태와 최신 커밋은 문서에 고정하지 않고 아래 명령으로 확인한다.
@@ -20,7 +20,7 @@ git log -5 --oneline
 ## 구현된 제품 모델
 
 ```text
-Office (canonical Git repo)
+Office (local working folder, optional Git)
   ├─ 전체 사용자 에이전트 풀
   ├─ Team A ─ lead + members + instructions + routing + workflow
   ├─ Team B ─ lead + members + instructions + routing + workflow
@@ -32,21 +32,29 @@ Office (canonical Git repo)
 - 실행 프롬프트는 `역할 → 개인 지시 → Office 규칙 → 팀 지시 → 현재 작업` 순서로 조립한다.
 - 팀 미션은 선택된 팀의 직원 안에서만 라우팅한다.
 - 같은 repo 경로 쓰기는 직렬화하며 격리 모드에서는 agent별 worktree를 사용한다.
+- Git이 없는 폴더도 Office로 사용하며 Git이 나중에 탐지되면 전용 표면이 활성화된다.
+- 에이전트별로 역할 프리셋 기반 MCP·Skills·Plugins·Rules·Subagents 추천을 자동 적용하고, 사용자 조정 결과를 저장해 실행 프롬프트에 반영한다.
+- 팀 편집은 카드형 직원 전체 선택·해제와 명시적 실행 순서 조정을 지원한다.
+- 데일리 리포트는 당일 로컬 활동과 Git 변경을 검토용 Markdown 초안으로 만들고 외부 게시를 수행하지 않는다.
+- 블로그 제작은 콘텐츠 전략·출처 조사·작성·SEO·편집 QA·승인 후 발행 역할과 워크플로를 제공한다.
+- 실행 기록과 작업 보드는 같은 상세 화면을 열며 구조화 이벤트의 마지막 에이전트 답변을 최종 결과로 우선 표시한다. 원본 로그와 이전 실행 기록은 접힌 상세 영역에서 별도로 확인한다.
 
 ## 검증된 기준
 
 - `npm run check` 통과
-- `npm test` 29/29 통과
+- `npm test` 37/37 통과
 - `npm audit --omit=dev` 취약점 0건
-- 브라우저에서 Office, 다중 팀, 사용자 에이전트 4계층 설정 확인
+- 브라우저에서 역할 카드 12px·상위 섹션 14px 간격, 초기 실행 기록 클릭, 최종 결과·원본 로그·이전 실행 기록 분리, 작업 보드 공통 상세, 가로 넘침 없음 확인
+- Codex 프롬프트의 옵션 종료 표식 기본값·이전 설정 마이그레이션·실행 직전 안전장치 확인
+- 중복 `load()` 경쟁으로 발생하던 `repository.valid` JavaScript 오류 수정 후 브라우저 콘솔 오류 0건 확인
 - Electron smoke test 통과
-- v0.10.1 portable 산출물과 해시는 `QA_REPORT.md` 참조
+- v0.10.1 portable 산출물을 새 기능까지 포함해 재생성했으며 경로와 해시는 `QA_REPORT.md` 참조
 
 ## 알려진 제약
 
 - Workflow 단계 편집, 조건 분기, 승인 게이트는 아직 없다.
 - 선형 pipeline만 지원하고 DAG·변경 경로 선점은 아직 없다.
-- GitHub Projects v2는 읽기 중심이며 `read:project` scope가 필요하다.
+- GitHub Projects v2 읽기에는 `read:project` scope가 필요하지만 없어도 Issues·PR·로컬 작업은 영향받지 않는다.
 - OpenCode 실행 파일이 없는 개발 환경에서는 실제 실행을 검증하지 못했다.
 - 모델별 가격표가 없어 사용량은 토큰 원장 중심이고 실제 비용을 계산하지 않는다.
 - 코드 서명 인증서가 없어 portable 앱에 SmartScreen 경고가 나타날 수 있다.

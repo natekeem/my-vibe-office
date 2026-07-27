@@ -32,15 +32,23 @@ function parseWorktrees(text) {
 
 export async function inspectRepository(projectPath) {
   const result = {
-    valid: false, path: projectPath ? path.resolve(projectPath) : '', root: '', branch: '',
+    valid: false, git: false, path: projectPath ? path.resolve(projectPath) : '', root: '', branch: '',
     upstream: '', ahead: 0, behind: 0, dirty: false, changes: [], branches: [], commits: [], remotes: [], worktrees: [], error: '',
     scannedAt: new Date().toISOString(),
   };
-  if (!projectPath) { result.error = '로컬 Git repo 폴더를 선택하세요.'; return result; }
+  if (!projectPath) { result.error = '작업할 로컬 폴더를 선택하세요.'; return result; }
+  try {
+    const stat = await fs.promises.stat(result.path);
+    if (!stat.isDirectory()) { result.error = '선택한 경로가 폴더가 아닙니다.'; return result; }
+    result.valid = true;
+    result.root = result.path;
+  } catch {
+    result.error = `작업 폴더를 찾을 수 없습니다: ${result.path}`;
+    return result;
+  }
   try {
     result.root = path.resolve(await git(projectPath, ['rev-parse', '--show-toplevel']));
-    result.path = result.root;
-    result.valid = true;
+    result.git = true;
     result.branch = await git(result.root, ['branch', '--show-current']);
     const status = await git(result.root, ['status', '--porcelain=v1', '--branch']);
     const lines = status.split(/\r?\n/).filter(Boolean);
@@ -72,7 +80,9 @@ export async function inspectRepository(projectPath) {
     }).filter(([, value]) => value)).values()];
     result.worktrees = parseWorktrees(await git(result.root, ['worktree', 'list', '--porcelain']));
   } catch (error) {
-    result.error = String(error.stderr || error.message || 'Git 저장소를 확인할 수 없습니다.').trim().slice(0, 500);
+    result.git = false;
+    result.root = result.path;
+    result.gitError = String(error.stderr || error.message || 'Git 저장소가 아닙니다.').trim().slice(0, 500);
   }
   return result;
 }
@@ -91,7 +101,8 @@ export function agentWorktreePath(repoPath, agent) {
 
 export async function ensureAgentWorktree(repoPath, agent) {
   const inspected = await inspectRepository(repoPath);
-  if (!inspected.valid) throw new Error(inspected.error || '유효한 Git repo가 필요합니다.');
+  if (!inspected.valid) throw new Error(inspected.error || '유효한 작업 폴더가 필요합니다.');
+  if (!inspected.git) throw new Error('Git이 연결된 Office에서만 worktree 격리를 사용할 수 있습니다.');
   const target = agentWorktreePath(inspected.root, agent);
   const branch = `my-vibe-office/${safeSegment(agent?.id || agent?.name)}`;
   if (fs.existsSync(path.join(target, '.git'))) return { path: target, branch, created: false };

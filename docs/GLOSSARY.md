@@ -2,7 +2,7 @@
 
 | 용어 | 의미 |
 |---|---|
-| Office | 하나의 canonical local Git repo에 연결된 최상위 작업 공간 |
+| Office | 하나의 로컬 작업 폴더에 연결된 최상위 작업 공간. Git은 선택적 확장 기능 |
 | 사용자 에이전트 | 이름, 직함, mode, 역할 프리셋, adapter, model, 개인 지시를 가진 실행 주체 |
 | 역할 프리셋 | adapter/model과 독립된 역할 지식, mode, 전문 태그 묶음 |
 | 실행 프로필 | CLI executable, args, model, 환경 변수 참조 설정 |
@@ -15,7 +15,7 @@
 | adaptive | 요청 의도와 workflow에 맞는 mode만 동적으로 선택하는 라우팅 |
 | manual | 팀 lead가 직접 처리하는 라우팅 |
 | sequential | 사용자가 지정한 pipeline 순서대로 실행하는 라우팅 |
-| shared-serial | 같은 repo 경로의 쓰기를 한 번에 하나만 허용하는 실행 모드 |
+| shared-serial | 같은 작업 폴더 경로의 쓰기를 한 번에 하나만 허용하는 실행 모드 |
 | isolated-worktrees | agent마다 branch와 별도 worktree 경로를 사용하는 실행 모드 |
 | ITO | CLI 내부에서 호출된 subagent 인력풀과 실행 이벤트를 보여주는 UI 표현 |
 | Local Office | 현재 저장소가 구현하는 Windows 로컬 실행 앱 |

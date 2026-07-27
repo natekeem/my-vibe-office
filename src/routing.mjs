@@ -1,6 +1,7 @@
 import { presets } from './presets.mjs';
 
 const intentRules = [
+  ['blog-article', /블로그\s*(?:글|게시|아티클)|게시물\s*(?:후보|작성|기획)|콘텐츠\s*(?:기획|작성|초안)|검색\s*의도|blog\s*(?:post|article)|seo\s*(?:글|콘텐츠)/i],
   ['incident', /장애|배포 실패|서비스 중단|incident|outage|production/i],
   ['review-only', /리뷰|검토|감사|취약점|review|audit|security/i],
   ['frontend-change', /화면|버튼|레이아웃|디자인|접근성|프론트|ui|ux|css|react|frontend/i],

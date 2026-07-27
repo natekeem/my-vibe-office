@@ -161,6 +161,8 @@ export function createServer({ store, runner, scheduler, orchestrator, integrati
           modeId: preset.modeId,
           specialties: preset.tags,
           systemPrompt: preset.prompt,
+          capabilityMode: input.autoTools === false ? 'manual' : 'auto',
+          capabilities: Array.isArray(input.capabilities) ? input.capabilities : current.capabilities,
           color: input.keepColor ? current.color : preset.color,
           name: input.usePresetName ? preset.name : current.name,
         });

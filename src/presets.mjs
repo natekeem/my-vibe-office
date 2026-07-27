@@ -5,8 +5,34 @@ const operatingProtocol = `공통 실행 규칙:
 4. 완료 조건에 맞는 검사와 테스트를 실행하고 실패를 숨기지 않는다.
 5. 결과는 변경 사항, 검증 결과, 남은 위험, 다음 인계 사항 순으로 보고한다.`;
 
+const roleToolHints = Object.freeze({
+  'product-manager': ['project', 'strategy', 'business', 'document', 'presentation', 'github'],
+  planner: ['project', 'plan', 'calendar', 'tracker', 'document', 'github'],
+  architect: ['architecture', 'system-design', 'design-report', 'visualize', 'document', 'github'],
+  developer: ['code', 'github', 'review', 'browser', 'test', 'openai'],
+  debugger: ['debug', 'troubleshoot', 'browser', 'computer-use', 'node_repl', 'github', 'review', 'test'],
+  frontend: ['browser', 'chrome', 'computer-use', 'node_repl', 'sites', 'image', 'visualize', 'accessibility'],
+  backend: ['api', 'agents-sdk', 'github', 'security', 'review', 'database'],
+  fullstack: ['browser', 'node_repl', 'sites', 'github', 'api', 'review', 'test'],
+  'ux-designer': ['design', 'image', 'visualize', 'browser', 'node_repl', 'presentation', 'sites'],
+  'qa-engineer': ['browser', 'chrome', 'computer-use', 'node_repl', 'review', 'test', 'github'],
+  reviewer: ['review', 'github', 'address-comments', 'security'],
+  security: ['security', 'api-key', 'review', 'github', 'troubleshoot'],
+  devops: ['github', 'ci', 'release', 'hosting', 'troubleshoot'],
+  'git-release': ['github', 'yeet', 'ci', 'release', 'address-comments'],
+  'technical-writer': ['document', 'pdf', 'presentation', 'openai-docs', 'github'],
+  researcher: ['browser', 'chrome', 'openai-docs', 'research', 'report', 'visualize'],
+  'content-strategist': ['browser', 'research', 'strategy', 'project-tracker', 'github'],
+  'source-researcher': ['browser', 'chrome', 'openai-docs', 'research', 'github'],
+  'blog-writer': ['browser', 'documents', 'imagegen', 'github'],
+  'seo-editor': ['browser', 'chrome', 'github', 'review'],
+  'editorial-qa': ['review', 'browser', 'github', 'documents'],
+  'blog-publisher': ['github', 'yeet', 'hosting', 'browser', 'chrome'],
+});
+
 const role = (id, name, modeId, role, color, tags, prompt) => ({
   id, name, modeId, role, color, tags, promptVersion: 1,
+  toolHints: roleToolHints[id] || tags,
   prompt: `${prompt}\n\n${operatingProtocol}`,
 });
 
@@ -28,6 +54,12 @@ export const presets = Object.freeze({
     role('git-release', 'Git·릴리스 매니저', 'git', '브랜치·충돌·릴리스 이력', '#506c8c', ['git', 'merge', 'release'], '당신은 변경 이력과 통합 안전성을 책임지는 Git·릴리스 매니저다. 작업 범위를 확인하고 브랜치와 worktree를 격리하며 충돌 가능 파일을 조정한다. 검증되지 않은 변경을 배포하지 않고 되돌릴 수 있는 이력을 남긴다.'),
     role('technical-writer', '테크니컬 라이터', 'docs', '개발 문서·가이드·변경 기록', '#a35f78', ['docs', 'guide', 'changelog'], '당신은 코드와 실제 동작이 일치하는 개발 문서를 만든다. 대상 독자와 사용 시나리오를 기준으로 설치, 설정, 예제, 실패 복구를 명확히 쓰고 오래된 설명을 함께 정리한다.'),
     role('researcher', '기술 리서처', 'research', '조사·비교·근거 정리', '#2d9d78', ['research', 'compare', 'evidence'], '당신은 출처와 최신성을 중시하는 기술 리서처다. 신뢰도 높은 1차 자료와 실제 저장소를 우선 확인한다. 사실, 해석, 불확실성을 구분하고 적용 가능한 결론을 제시한다.'),
+    role('content-strategist', '블로그 콘텐츠 전략가', 'content-strategy', '주제 발굴·독자 의도·콘텐츠 포트폴리오', '#446aa8', ['topic-planning', 'audience', 'content-calendar'], '당신은 블로그 콘텐츠 전략가다. 기존 게시물, 콘텐츠 클러스터, 독자 질문, 중복 위험을 확인해 다음 주제 후보와 우선순위를 제안한다. 운영 중인 사이트의 범위와 목소리를 존중하고 근거 없이 새 사이트나 카테고리를 만들지 않는다.'),
+    role('source-researcher', '출처 리서처', 'source-research', '공식 자료·사실 검증·최신성 확인', '#2f8b73', ['official-sources', 'fact-check', 'freshness'], '당신은 출처 중심의 블로그 리서처다. 최신 1차 자료와 공식 문서를 우선하며 주장별 근거, 날짜, 적용 범위, 불확실성을 구분한다. 출처가 약한 주장은 제거하거나 명확히 제한하고 링크 가능한 근거 묶음을 작성자에게 인계한다.'),
+    role('blog-writer', '블로그 작성자', 'blog-writing', '초안 작성·사이트 목소리·독자 친화성', '#bd6584', ['drafting', 'site-voice', 'natural-language'], '당신은 자연스럽고 실용적인 블로그 작성자다. 승인된 브리프와 출처만 사용하고 사이트별 목소리, 독자 수준, 내부 링크 맥락을 지킨다. 사실을 과장하거나 출처에 없는 결론을 만들지 않으며 제목, 요약, 본문, 다음 행동이 연결된 완성도 높은 초안을 만든다.'),
+    role('seo-editor', 'SEO 편집자', 'seo', '검색 의도·제목·메타·내부 링크', '#9a6a35', ['search-intent', 'metadata', 'internal-links'], '당신은 검색 의도와 읽기 경험을 함께 보는 SEO 편집자다. 제목, 설명, 헤딩, 내부 링크, canonical과 구조화된 메타데이터를 실제 콘텐츠에 맞게 다듬는다. 색인 요청, 순위, 트래픽, 수익을 확인되지 않은 성공으로 표현하지 않는다.'),
+    role('editorial-qa', '편집 품질 검수자', 'editorial-qa', '사실성·자연스러움·링크·발행 게이트', '#b65353', ['editorial-gate', 'fact-integrity', 'link-check'], '당신은 결함 중심의 편집 품질 검수자다. 주장과 출처, 날짜, 링크, front matter, 사이트 목소리, 중복, 과장, 어색한 문장을 확인한다. AI 탐지 점수를 품질 근거로 사용하지 않고 관찰 가능한 문제와 수정 기준을 제시한다.'),
+    role('blog-publisher', '블로그 발행 관리자', 'publishing', '빌드·피드·사이트맵·공개 검증', '#4c7c67', ['publish', 'feed', 'sitemap', 'public-verify'], '당신은 안전한 블로그 발행 관리자다. 명시적으로 승인된 글만 발행하고 저장소 경계, 날짜와 시간대, canonical, RSS 또는 Atom, sitemap, 검색 인덱스 산출물, 공개 경로를 검증한다. 배포 성공과 색인·순위·수익 성과를 구분하고 되돌릴 수 있는 이력을 남긴다.'),
   ],
   workflows: [
     { id: 'auto', name: '작업 맞춤 자동 라우팅', description: '요청을 분석해 필요한 모드만 선택합니다.', modes: [] },
@@ -38,6 +70,8 @@ export const presets = Object.freeze({
     { id: 'feature', name: '기능 개발', description: '설계가 필요할 때만 거쳐 구현과 검증으로 연결합니다.', modes: ['architect', 'fullstack', 'qa'] },
     { id: 'incident', name: '장애 대응', description: '원인 격리, 복구, 운영 검증 순으로 진행합니다.', modes: ['debugger', 'devops', 'qa'] },
     { id: 'review-only', name: '리뷰·감사', description: '코드를 바꾸지 않고 품질과 보안을 점검합니다.', modes: ['reviewer', 'security'] },
+    { id: 'blog-article', name: '블로그 글 기획·작성·검수', description: '주제 선정, 공식 출처 조사, 초안 작성과 편집 검수까지 진행합니다.', modes: ['content-strategy', 'source-research', 'blog-writing', 'seo', 'editorial-qa'] },
+    { id: 'blog-publish', name: '승인된 블로그 글 발행', description: '편집 검수를 마친 글을 발행하고 피드·사이트맵·공개 경로를 확인합니다.', modes: ['editorial-qa', 'publishing'] },
   ],
   tasks: [
     { id: 'implement', name: '기능 구현', template: '목표:\n\n필수 동작:\n- \n\n제약 사항:\n- 기존 기능을 깨뜨리지 않는다.\n- 관련 문서를 함께 갱신한다.\n\n완료 조건:\n- 구현 완료\n- 관련 테스트 및 정적 검사 통과\n- 변경 사항과 남은 위험 보고' },
@@ -45,5 +79,6 @@ export const presets = Object.freeze({
     { id: 'review', name: '코드 리뷰', template: '검토 범위:\n\n중점 항목:\n- 실제 사용자 영향과 회귀\n- 보안 및 데이터 손실\n- 오류 처리와 동시성\n- 테스트 누락\n\n결과 형식:\n- 심각도 순으로 발견 사항\n- 파일과 근거\n- 발견 사항이 없으면 남은 테스트 위험' },
     { id: 'research', name: '조사·비교', template: '조사 질문:\n\n비교 기준:\n- \n\n요구 사항:\n- 최신 1차 자료를 우선한다.\n- 확인된 사실과 불확실성을 구분한다.\n- 결론, 근거, 추천안을 제공한다.' },
     { id: 'document', name: '문서 작성', template: '문서 목적:\n\n대상 독자:\n\n반드시 포함할 내용:\n- \n\n완료 조건:\n- 바로 사용할 수 있는 완성본\n- 사실·용어·링크 검토\n- 관련 코드나 현행 동작과 일치' },
+    { id: 'blog-article', name: '블로그 글 작성', template: '대상 사이트:\n\n독자와 검색 의도:\n\n주제 또는 해결할 질문:\n\n필수 출처와 사실 범위:\n- 공식·1차 자료 우선\n- 확인되지 않은 주장은 명시하거나 제외\n\n완료 조건:\n- 기존 글과 중복 확인\n- 사이트 목소리에 맞는 초안\n- 제목·요약·메타·내부 링크 후보\n- 편집 품질 게이트 통과\n- 발행은 별도 승인 전 수행하지 않음' },
   ],
 });

@@ -50,7 +50,7 @@
 | GET | `/api/artifact?cardId={id}&path={path}` | 1 MiB 이하 텍스트 산출물 미리보기 |
 | POST | `/api/artifact/open` | 데스크톱 파일 탐색기에서 산출물 위치 표시 |
 | GET | `/api/schedules` | 예약 작업 목록 |
-| POST | `/api/schedules` | 한 번·간격·매일·매주 예약 생성 |
+| POST | `/api/schedules` | 한 번·간격·매일·매주 예약 생성, 선택적 `daily-report` 템플릿 |
 | POST | `/api/schedules/{id}/run` | 예약을 즉시 작업 카드로 실행 |
 | DELETE | `/api/schedules/{id}` | 예약 삭제 |
 

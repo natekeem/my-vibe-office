@@ -15,7 +15,7 @@
 
 ## 제품 모델
 
-- Office는 canonical local Git repo다.
+- Office는 사용자가 지정한 로컬 작업 폴더다. Git은 선택적 확장이다.
 - Windows Local Office가 CLI 실행, worktree, 비밀정보, 상세 로그를 소유한다.
 - 향후 Web Hub는 카탈로그, 마켓플레이스, 공개 리포트와 opt-in 랭킹만 담당한다.
 - 에이전트는 고정 직급 순서가 아니라 `modeId`와 전문 태그로 라우팅된다.
@@ -42,7 +42,7 @@ portable 앱 변경은 추가로 `npm run dist`를 실행한다.
 - 기본 서버 바인딩은 `127.0.0.1`이다.
 - 프롬프트, 소스, diff, 토큰, 사내 endpoint를 외부로 자동 전송하지 않는다.
 - CLI 명령은 셸 문자열로 조합하지 않는다.
-- Git repo 유효성 검사와 shared 경로 직렬화/worktree 격리를 우회하지 않는다.
+- 작업 폴더 유효성 검사와 shared 경로 직렬화, Git Office의 worktree 격리를 우회하지 않는다.
 - 사용자의 기존 변경을 덮어쓰거나 파괴적인 Git 명령을 사용하지 않는다.
 - 구현되지 않은 로드맵 항목을 현재 기능처럼 문서화하지 않는다.
 - 제품의 기원을 다른 앱에서 가져오거나 복제한 것으로 설명하지 않는다.

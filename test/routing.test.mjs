@@ -44,3 +44,17 @@ test('a general coder can cover an unstaffed frontend mode before review', () =>
   const route = resolveMissionRoute({ ...project, agentIds: ['dev', 'review'], masterAgentId: 'dev' }, flexibleAgents, '버튼 UI를 수정해줘');
   assert.deepEqual(route.pipeline, ['dev', 'review']);
 });
+
+test('blog writing requests select the editorial workflow', () => {
+  assert.equal(detectWorkflow('다음 블로그 게시물 후보를 조사하고 글을 작성해줘'), 'blog-article');
+  const editorialAgents = [
+    { id: 'strategy', modeId: 'content-strategy' },
+    { id: 'research', modeId: 'source-research' },
+    { id: 'writer', modeId: 'blog-writing' },
+    { id: 'seo', modeId: 'seo' },
+    { id: 'qa', modeId: 'editorial-qa' },
+  ];
+  const route = resolveMissionRoute({ ...project, agentIds: editorialAgents.map((agent) => agent.id), masterAgentId: 'strategy' }, editorialAgents, '공식 출처로 블로그 글을 작성해줘');
+  assert.equal(route.workflowId, 'blog-article');
+  assert.deepEqual(route.pipeline, ['strategy', 'research', 'writer', 'seo', 'qa']);
+});

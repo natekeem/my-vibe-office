@@ -6,17 +6,22 @@ import path from 'node:path';
 import { ensureAgentWorktree, inspectRepository } from '../src/repository.mjs';
 import { initGitRepo } from '../test-support/helpers.mjs';
 
-test('repository inspection gates non-git folders and prepares isolated agent worktrees', async (t) => {
+test('repository inspection accepts folders and enables worktrees only after Git is connected', async (t) => {
   const base = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'my-vibe-office-repository-'));
   const repo = path.join(base, 'repo');
   const plain = path.join(base, 'plain');
   await fs.promises.mkdir(plain);
   t.after(() => fs.promises.rm(base, { recursive: true, force: true }));
-  assert.equal((await inspectRepository(plain)).valid, false);
+  const folder = await inspectRepository(plain);
+  assert.equal(folder.valid, true);
+  assert.equal(folder.git, false);
+  await assert.rejects(() => ensureAgentWorktree(plain, { id: 'agent_plain', name: 'Plain' }), /Git이 연결/);
   await fs.promises.mkdir(repo);
   await initGitRepo(repo);
   const inspected = await inspectRepository(repo);
   assert.equal(inspected.valid, true);
+  assert.equal(inspected.git, true);
+  assert.equal(inspected.path, path.resolve(repo));
   assert.equal(inspected.branch, 'main');
   assert.ok(inspected.commits.length >= 1);
   const previous = process.env.MY_VIBE_OFFICE_WORKTREE_ROOT;

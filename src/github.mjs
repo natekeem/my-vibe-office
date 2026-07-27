@@ -35,7 +35,10 @@ export async function inspectGithub(projectPath) {
           board.items = detail.items || [];
         } catch (error) { board.itemError = String(error.stderr || error.message || '').trim().slice(0, 200); }
       }
-    } catch (error) { result.projectError = String(error.stderr || error.message || '').trim().slice(0, 300); }
+    } catch (error) {
+      result.projectError = String(error.stderr || error.message || '').trim().slice(0, 300);
+      result.projectPermissionMissing = /missing required scopes?[\s\S]*read:project|read:project[\s\S]*scope/i.test(result.projectError);
+    }
   } catch (error) {
     result.error = String(error.stderr || error.message || '').trim().slice(0, 500);
   }

@@ -51,6 +51,18 @@ test('agent keeps user instructions separate from its role preset', async (t) =>
   assert.equal(agent.userPrompt, 'Prefer TypeScript.');
 });
 
+test('agent keeps a bounded per-agent capability policy', async (t) => {
+  const { store, dir } = await tempStore();
+  t.after(() => fs.promises.rm(dir, { recursive: true, force: true }));
+  const agent = await store.saveAgent({ name: 'Tool user', adapter: 'codex', capabilities: [
+    { clientId: 'codex', type: 'skills', name: 'browser', scope: 'plugin' },
+    { clientId: 'codex', type: 'mcp', name: 'github', scope: 'global' },
+  ] });
+  assert.deepEqual(agent.capabilities.map((item) => item.name), ['browser', 'github']);
+  assert.equal(agent.capabilityMode, 'manual');
+  assert.equal(store.getAgent(agent.id).capabilities[0].scope, 'plugin');
+});
+
 test('settings clamp concurrency and retain adapter defaults', async (t) => {
   const { store, dir } = await tempStore();
   t.after(() => fs.promises.rm(dir, { recursive: true, force: true }));
@@ -59,6 +71,25 @@ test('settings clamp concurrency and retain adapter defaults', async (t) => {
   assert.equal(settings.adapters.codex.executable, 'my-codex');
   assert.equal(settings.adapters.claude.executable, 'claude');
   assert.equal(settings.adapters.opencode.executable, 'opencode');
+});
+
+test('CLI detection replaces a stale absolute executable path after an app update', async (t) => {
+  const { store, dir } = await tempStore();
+  t.after(() => fs.promises.rm(dir, { recursive: true, force: true }));
+  const stale = path.join(dir, 'removed-version', 'codex.exe');
+  await store.saveSettings({ adapters: { codex: { executable: stale } } });
+  const settings = await store.applyDetectedAdapters({ codex: process.execPath });
+  assert.equal(settings.adapters.codex.executable, process.execPath);
+});
+
+test('CLI detection migrates Codex prompts that begin with dashes to positional arguments', async (t) => {
+  const { store, dir } = await tempStore();
+  t.after(() => fs.promises.rm(dir, { recursive: true, force: true }));
+  store.state.settings.adapters.codex.args = ['exec', '--json', '--color', 'never', '--skip-git-repo-check', '{prompt}'];
+  store.state.settings.adapters.codex.resumeArgs = ['exec', 'resume', '--json', '--skip-git-repo-check', '{sessionId}', '{prompt}'];
+  await store.applyDetectedAdapters({ codex: process.execPath });
+  assert.deepEqual(store.snapshot().settings.adapters.codex.args.slice(-2), ['--', '{prompt}']);
+  assert.deepEqual(store.snapshot().settings.adapters.codex.resumeArgs.slice(-2), ['--', '{prompt}']);
 });
 
 test('OpenCode is a supported agent adapter', async (t) => {
@@ -82,10 +113,10 @@ test('custom Anthropic-compatible CLI profiles can be assigned and safely remove
 
 test('projects persist and can be removed', async (t) => {
   const { store, dir } = await tempStore();
-  await initGitRepo(dir);
   t.after(() => fs.promises.rm(dir, { recursive: true, force: true }));
   const project = await store.saveProject({ name: 'Local project', path: dir, description: 'test workspace' });
   assert.equal(store.listProjects()[0].path, path.resolve(dir));
+  assert.equal(project.executionMode, 'shared-serial');
   assert.equal(await store.removeProject(project.id), true);
   assert.deepEqual(store.listProjects(), []);
 });

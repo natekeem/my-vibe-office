@@ -34,8 +34,8 @@ export const DEFAULT_STATE = Object.freeze({
     adapters: {
       codex: {
         label: 'Codex', family: 'codex', builtIn: true, executable: 'codex', env: {},
-        args: ['exec', '--json', '--color', 'never', '--skip-git-repo-check', '{prompt}'],
-        resumeArgs: ['exec', 'resume', '--json', '--skip-git-repo-check', '{sessionId}', '{prompt}'],
+        args: ['exec', '--json', '--color', 'never', '--skip-git-repo-check', '--', '{prompt}'],
+        resumeArgs: ['exec', 'resume', '--json', '--skip-git-repo-check', '{sessionId}', '--', '{prompt}'],
       },
       claude: { label: 'Claude Code', family: 'claude', builtIn: true, executable: 'claude', args: ['-p', '{prompt}'], env: {} },
       opencode: { label: 'OpenCode', family: 'opencode', builtIn: true, executable: 'opencode', args: ['run', '--format', 'json', '{prompt}'], env: {} },
@@ -134,6 +134,13 @@ export class Store {
       presetId: String(input.presetId || '').trim(),
       modeId: String(input.modeId || '').trim(),
       specialties: Array.isArray(input.specialties) ? [...new Set(input.specialties.map(String).map((item) => item.trim()).filter(Boolean))].slice(0, 12) : [],
+      capabilityMode: input.capabilityMode === 'manual' || (!input.capabilityMode && Array.isArray(input.capabilities) && input.capabilities.length) ? 'manual' : 'auto',
+      capabilities: Array.isArray(input.capabilities) ? input.capabilities.slice(0, 100).map((item) => ({
+        clientId: String(item?.clientId || '').slice(0, 80),
+        type: String(item?.type || '').slice(0, 40),
+        name: String(item?.name || '').slice(0, 160),
+        scope: String(item?.scope || '').slice(0, 40),
+      })).filter((item) => item.clientId && item.type && item.name) : [],
     };
     if (!clean.name) throw new Error('에이전트 이름이 필요합니다.');
     const found = input.id && this.state.agents.find((a) => a.id === input.id);
@@ -366,8 +373,8 @@ export class Store {
     const name = String(input.name || '').trim();
     if (!name || !input.path) throw new Error('프로젝트 이름과 폴더가 필요합니다.');
     const inspected = await inspectRepository(String(input.path || '').trim());
-    if (!inspected.valid) throw new Error(`Git repo를 확인할 수 없습니다: ${inspected.error}`);
-    const projectPath = inspected.root;
+    if (!inspected.valid) throw new Error(`작업 폴더를 확인할 수 없습니다: ${inspected.error}`);
+    const projectPath = inspected.path;
     this.state.settings.projects ||= [];
     const found = input.id && this.state.settings.projects.find((p) => p.id === input.id);
     const validAgents = new Set(this.state.agents.map((agent) => agent.id));
@@ -386,7 +393,7 @@ export class Store {
         : (found?.teams || []).map((team) => this.cleanProjectTeam(team, agentIds, team.id)),
       defaultTeamId: String(input.defaultTeamId ?? found?.defaultTeamId ?? '').trim(),
       gitRemote: inspected.remotes.find((remote) => remote.name === 'origin')?.url || '',
-      executionMode: input.executionMode === 'isolated-worktrees' ? 'isolated-worktrees' : 'shared-serial',
+      executionMode: inspected.git && input.executionMode === 'isolated-worktrees' ? 'isolated-worktrees' : 'shared-serial',
       routingMode: ['manual', 'sequential'].includes(input.routingMode) ? input.routingMode : 'adaptive',
       workflowId: String(input.workflowId || 'auto').trim() || 'auto',
       updatedAt: now(),
@@ -489,6 +496,7 @@ export class Store {
     const clean = {
       name: String(input.name || '').trim(), agentId: input.agentId,
       prompt: String(input.prompt || '').trim(), workdir: project.path, projectId: project.id,
+      templateId: input.templateId === 'daily-report' ? 'daily-report' : '',
       type, intervalMinutes, runAt, time, weekday, enabled: input.enabled !== false,
     };
     clean.nextRunAt = nextScheduleAt(clean, new Date());
@@ -524,7 +532,9 @@ export class Store {
       const current = this.state.settings.adapters[key];
       const found = detected[key];
       if (!found || !current) continue;
-      const isDefault = !current.executable || current.executable === key || /WindowsApps/i.test(current.executable);
+      const configured = String(current.executable || '');
+      const missingAbsolute = path.isAbsolute(configured) && !fs.existsSync(configured);
+      const isDefault = !configured || configured === key || /WindowsApps/i.test(configured) || missingAbsolute;
       if (isDefault && current.executable !== found) {
         current.executable = found;
         changed = true;
@@ -533,7 +543,15 @@ export class Store {
         current.args = clone(DEFAULT_STATE.settings.adapters.codex.args);
         changed = true;
       }
+      if (key === 'codex' && JSON.stringify(current.args) === JSON.stringify(['exec', '--json', '--color', 'never', '--skip-git-repo-check', '{prompt}'])) {
+        current.args = clone(DEFAULT_STATE.settings.adapters.codex.args);
+        changed = true;
+      }
       if (key === 'codex' && !Array.isArray(current.resumeArgs)) {
+        current.resumeArgs = clone(DEFAULT_STATE.settings.adapters.codex.resumeArgs);
+        changed = true;
+      }
+      if (key === 'codex' && JSON.stringify(current.resumeArgs) === JSON.stringify(['exec', 'resume', '--json', '--skip-git-repo-check', '{sessionId}', '{prompt}'])) {
         current.resumeArgs = clone(DEFAULT_STATE.settings.adapters.codex.resumeArgs);
         changed = true;
       }

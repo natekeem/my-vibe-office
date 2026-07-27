@@ -18,6 +18,7 @@ src/server.mjs
         ├── src/presets.mjs ── role / task prompt templates
         ├── src/detect.mjs ── local CLI discovery
         ├── src/capabilities.mjs ── MCP / skills / rules / plugins / subagents inventory
+        ├── src/tool-policy.mjs ── role-aware capability recommendations
         ├── src/repository.mjs ── canonical Git root / branches / history / worktrees
         └── src/github.mjs ── GitHub Issues / Projects v2 / Pull Requests
 
@@ -37,7 +38,7 @@ desktop/main.mjs
 
 ### 실행 계층
 
-어댑터는 `executable`과 `args[]`로 구성된다. `{prompt}`, `{workdir}`, `{model}` 토큰만 치환한다. `shell:false`로 실행하여 프롬프트가 셸 명령으로 해석되지 않게 한다.
+어댑터는 `executable`과 `args[]`로 구성된다. `{prompt}`, `{workdir}`, `{model}` 토큰만 치환한다. `shell:false`로 실행하여 프롬프트가 셸 명령으로 해석되지 않게 한다. Codex의 위치형 `{prompt}` 앞에는 `--`를 두며, 저장된 이전 설정에 표식이 없어도 실행 직전 프롬프트가 하이픈으로 시작하면 안전하게 삽입한다.
 
 Windows에서 중지는 `taskkill /pid <pid> /t /f`로 자식 프로세스 트리까지 종료한다. macOS/Linux에서는 SIGTERM을 사용한다.
 
@@ -57,13 +58,13 @@ Claude/OpenCode 계열의 구조화 로그에서 Agent 또는 Task 도구 호출
 
 ### Office 활성화 게이트
 
-저장소 계층은 일반 폴더를 프로젝트로 저장하지 않는다. 첫 Office가 생성되면 활성 Office로 지정하고, 이후 새 에이전트는 현재 Office에 자동 배치한다. 카드와 예약 API는 활성 Office와 배치 에이전트를 검증하며 Runner는 실행 직전 Git repo 유효성을 다시 확인한다.
+저장소 계층은 존재하는 로컬 폴더를 Office로 저장한다. Git은 선택 기능이며 탐지되면 branch·history·worktree·GitHub 표면을 추가로 활성화한다. 첫 Office가 생성되면 활성 Office로 지정하고, 이후 새 에이전트는 현재 Office에 자동 배치한다. 카드와 예약 API는 활성 Office와 배치 에이전트를 검증하며 Runner는 실행 직전 작업 폴더를 다시 확인한다.
 
 동시 실행 한도에 도달하면 작업은 `queued`로 전환된다. 실행 프로세스가 끝나거나 중지되면 대기열의 다음 작업을 자동으로 실행한다. Codex의 JSONL 이벤트는 메시지, 명령 결과, 토큰 사용량으로 정규화하며 원본 이벤트도 카드에 보존한다.
 
 ### 프롬프트·오케스트레이션 계층
 
-역할 프리셋은 역할 지식만 가지며 adapter나 model을 포함하지 않는다. 사용자 에이전트는 실행 프로필과 개인 추가 지시를 별도로 가진다. `Runner`는 실행할 때 `역할 프리셋 → 사용자 에이전트 지시 → Office/repo 규칙 → 팀 운영 지시 → 현재 작업` 순서로 프롬프트를 조립한다. 별도의 숨은 프로젝트 프롬프트는 없다.
+역할 프리셋은 역할 지식과 도구 추천 키워드를 가지며 adapter나 model을 포함하지 않는다. 사용자 에이전트는 실행 프로필, 개인 추가 지시, MCP·Skills·Plugins·Rules·Subagents 우선 사용 정책을 별도로 가진다. UI는 현재 CLI의 인벤토리에서 프로젝트 규칙과 역할 키워드에 맞는 도구를 자동 추천하고 사용자가 세부 선택을 덮어쓸 수 있게 한다. `Runner`는 실행할 때 `역할 프리셋 → 사용자 에이전트 지시 → 에이전트별 도구 정책 → Office 규칙 → 팀 운영 지시 → 현재 작업` 순서로 프롬프트를 조립한다. 별도의 숨은 프로젝트 프롬프트는 없다.
 
 repo는 전체 배치 에이전트 풀과 여러 팀을 가진다. 각 팀은 독립적인 리드, 직원, 운영 지시, 라우팅 모드, 워크플로와 선택적 순차 파이프라인을 가진다. `routing.mjs`는 선택된 팀 안에서 요청 의도와 Workflow preset을 필요한 작업 모드로 바꾸고, 정확한 모드가 없으면 coder/fullstack/reviewer 같은 호환 모드를 선택한다. `Orchestrator`는 결정된 첫 단계 카드를 만들고 정상 종료 결과를 다음 단계 프롬프트로 인계한다. 실패하면 미션을 `review`로 멈춘다. `Runner`는 프로세스 생성 전부터 정규화된 작업 경로를 예약하므로 같은 repo 경로의 쓰기 작업은 겹치지 않는다.
 
@@ -77,7 +78,7 @@ repo는 전체 배치 에이전트 풀과 여러 팀을 가진다. 각 팀은 �
 
 ### 예약 계층
 
-스케줄러는 15초 간격으로 실행 예정 시간을 확인한다. 한 번, 분 단위 간격, 매일, 매주 규칙을 지원하며, 실행 시 일반 작업 카드를 생성하므로 수동 작업과 동일한 로그·검토 흐름을 사용한다.
+스케줄러는 15초 간격으로 실행 예정 시간을 확인한다. 한 번, 분 단위 간격, 매일, 매주 규칙을 지원하며, 실행 시 일반 작업 카드를 생성하므로 수동 작업과 동일한 로그·검토 흐름을 사용한다. `daily-report` 템플릿은 당일 카드·미션의 상태 메타데이터만 추가하고 에이전트에게 현재 폴더의 Git 상태 확인을 요청한다. 원본 프롬프트와 민감정보는 추가하지 않으며 결과는 파일 수정·커밋·푸시·외부 게시 없는 Markdown 검토 초안으로 제한한다.
 
 ### 통신 계층
 
@@ -91,7 +92,7 @@ repo는 전체 배치 에이전트 풀과 여러 팀을 가진다. 각 팀은 �
 
 ### Agent
 
-`id`, `name`, `role`, `modeId`, `specialties`, `presetId`, `adapter`, `model`, `color`, `systemPrompt`, `userPrompt`, `createdAt`, `updatedAt`
+`id`, `name`, `role`, `modeId`, `specialties`, `presetId`, `adapter`, `model`, `color`, `systemPrompt`, `userPrompt`, `capabilities`, `createdAt`, `updatedAt`
 
 `presetId`는 현재 적용된 역할 프리셋을 식별한다. 역할 적용 API는 이름, CLI 연결, `userPrompt`를 유지하면서 `role`, `systemPrompt`, 기본 색상을 하나의 원자적 설정 변경으로 갱신한다.
 
